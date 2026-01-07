@@ -14,6 +14,7 @@ import PlayerJoinScreen from './screens/PlayerJoinScreen';
 import RefereeMatchControlScreen from './screens/RefereeMatchControlScreen';
 import App from './App';
 import MainLayout from './components/MainLayout';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import ProfileScreen from './screens/ProfileScreen';
 import AddPlayerScreen from './screens/AddPlayerScreen';
@@ -26,24 +27,29 @@ const router = createBrowserRouter([
     children: [
       { path: '/admin-login', element: <AdminLoginScreen /> },
       {
-        element: <MainLayout />,
+        element: <ProtectedRoute />,
         children: [
-          { path: '/', element: <DashboardScreen /> },
-          { path: '/calendar', element: <CalendarScreen /> },
-          { path: '/create-league', element: <CreateLeagueScreen /> },
-          { path: '/create-team', element: <CreateTeamScreen /> },
-          { path: '/directory', element: <DirectoryScreen /> },
-          { path: '/fixture-generator', element: <FixtureGeneratorScreen /> },
-          { path: '/league/:id', element: <LeagueManagementScreen /> },
-          { path: '/league-table', element: <LeagueTableScreen /> },
-          { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
-          { path: '/match-management', element: <MatchManagementScreen /> },
-          { path: '/player-join', element: <PlayerJoinScreen /> },
-          { path: '/referee-match-control', element: <RefereeMatchControlScreen /> },
-          { path: '/profile', element: <ProfileScreen /> },
-          { path: '/add-player', element: <AddPlayerScreen /> },
-          { path: '/add-referee', element: <AddRefereeScreen /> },
-          { path: '/create-match', element: <CreateMatchScreen /> },
+          {
+            element: <MainLayout />,
+            children: [
+              { path: '/', element: <DashboardScreen /> },
+              { path: '/calendar', element: <CalendarScreen /> },
+              { path: '/create-league', element: <CreateLeagueScreen /> },
+              { path: '/create-team', element: <CreateTeamScreen /> },
+              { path: '/directory', element: <DirectoryScreen /> },
+              { path: '/fixture-generator', element: <FixtureGeneratorScreen /> },
+              { path: '/league/:id', element: <LeagueManagementScreen /> },
+              { path: '/league-table', element: <LeagueTableScreen /> },
+              { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
+              { path: '/match-management', element: <MatchManagementScreen /> },
+              { path: '/player-join', element: <PlayerJoinScreen /> },
+              { path: '/referee-match-control', element: <RefereeMatchControlScreen /> },
+              { path: '/profile', element: <ProfileScreen /> },
+              { path: '/add-player', element: <AddPlayerScreen /> },
+              { path: '/add-referee', element: <AddRefereeScreen /> },
+              { path: '/create-match', element: <CreateMatchScreen /> },
+            ]
+          }
         ]
       }
     ],
