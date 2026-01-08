@@ -221,14 +221,13 @@ const AdminLoginScreen: React.FC = () => {
             </button>
           </div>
 
-          {/* Social Login Divider */}
+          {/* Social Login Section - TEMPORARILY DISABLED
           <div className="relative flex items-center py-4">
             <div className="flex-grow border-t border-[#324467]"></div>
             <span className="flex-shrink-0 mx-4 text-slate-500 text-xs">O continúa con</span>
             <div className="flex-grow border-t border-[#324467]"></div>
           </div>
 
-          {/* Social Buttons */}
           <div className="flex gap-4">
             <button className="flex-1 flex items-center justify-center gap-2 bg-[#192233] hover:bg-[#232f48] border border-[#324467] rounded-xl py-3 text-white transition-all hover:scale-[1.02]">
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
@@ -239,6 +238,7 @@ const AdminLoginScreen: React.FC = () => {
               <span className="text-sm font-medium">Apple</span>
             </button>
           </div>
+          */}
         </div>
 
         {/* Footer / Help */}

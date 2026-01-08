@@ -12,6 +12,7 @@ interface Match {
   home_team: { name: string; shield_url?: string };
   away_team: { name: string; shield_url?: string };
   league?: { name: string };
+  league_id?: string; // Added league_id for filtering
   round_number?: number;
 }
 
@@ -20,13 +21,34 @@ const CalendarScreen: React.FC = () => {
   const { showToast } = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<string | null>(null); // Added role state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'next_round'>('all');
+  const [leagues, setLeagues] = useState<any[]>([]); // Added leagues state
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string>(''); // Added selectedLeagueId state
 
   useEffect(() => {
-    const fetchMatches = async () => {
+    const fetchRoleAndMatches = async () => {
       setLoading(true);
+
+      // Fetch Role
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        setRole(profile?.role || 'user');
+      }
+
+      // Fetch Leagues
+      const { data: leaguesData } = await supabase.from('leagues').select('id, name').order('created_at', { ascending: false });
+      if (leaguesData) {
+        setLeagues(leaguesData);
+        // Default to first league if none selected. Using functional update to avoid overwriting user selection if re-fetching?
+        // Actually, just set if empty.
+        setSelectedLeagueId(prev => prev || (leaguesData.length > 0 ? leaguesData[0].id : ''));
+      }
+
+      // Fetch Matches
       const { data, error } = await supabase
         .from('matches')
         .select(`
@@ -36,8 +58,10 @@ const CalendarScreen: React.FC = () => {
             away_score, 
             status,
             round_number,
+            league_id,
             home_team:teams!matches_home_team_id_fkey(name, shield_url),
-            away_team:teams!matches_away_team_id_fkey(name, shield_url)
+            away_team:teams!matches_away_team_id_fkey(name, shield_url),
+            league:leagues(name)
         `)
         .order('start_time', { ascending: true });
 
@@ -48,18 +72,22 @@ const CalendarScreen: React.FC = () => {
         const formattedData = (data as any[] || []).map(m => ({
           ...m,
           home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
-          away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team
+          away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team,
+          league: Array.isArray(m.league) ? m.league[0] : m.league
         }));
         setMatches(formattedData);
       }
       setLoading(false);
     };
 
-    fetchMatches();
+    fetchRoleAndMatches();
   }, [showToast]);
 
   // Filter matches
   const filteredMatchesList = matches.filter(match => {
+    // Filter by Selected League
+    if (selectedLeagueId && match.league_id !== selectedLeagueId) return false;
+
     const query = searchQuery.toLowerCase();
     const matchesSearch = match.home_team?.name.toLowerCase().includes(query) ||
       match.away_team?.name.toLowerCase().includes(query) ||
@@ -74,11 +102,18 @@ const CalendarScreen: React.FC = () => {
     return true;
   });
 
-  const upcomingMatches = matches.filter(m => m.status === 'scheduled');
+  const upcomingMatches = matches.filter(m => m.status === 'scheduled' && (!selectedLeagueId || m.league_id === selectedLeagueId));
   const nextRoundNumber = upcomingMatches.length > 0
     ? Math.min(...upcomingMatches.map(m => m.round_number || 100))
     : 0;
 
+  // Re-filter filteredMatchesList for next round logic?
+  // Logic above: `if (filterMode === 'next_round') return true;` -> doesn't enforce round!
+  // It relies on grouping later.
+  // Actually, line 84 in Step 611: `if (filterMode === 'next_round') { if ((match.round_number || 0) !== nextRoundNumber) return acc; }`
+  // So I need to ensure `nextRoundNumber` respects the league filter too (Added above).
+
+  // ... (Grouping logic) ...
   const groupedMatches = filteredMatchesList.reduce((acc, match) => {
     if (filterMode === 'next_round') {
       if ((match.round_number || 0) !== nextRoundNumber) return acc;
@@ -91,12 +126,11 @@ const CalendarScreen: React.FC = () => {
   }, {} as Record<number, Match[]>);
 
   const sortedRounds = Object.keys(groupedMatches).map(Number).sort((a, b) => a - b);
-
+  // ... (Formatters) ...
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   };
-
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
@@ -123,7 +157,24 @@ const CalendarScreen: React.FC = () => {
               </button>
             </div>
           ) : (
-            <h2 className="text-slate-900 dark:text-white text-2xl font-bold leading-tight tracking-tight flex-1">Calendario</h2>
+            <div className="flex-1 flex items-center">
+              {leagues.length > 0 ? (
+                <div className="relative group">
+                  <select
+                    value={selectedLeagueId}
+                    onChange={(e) => setSelectedLeagueId(e.target.value)}
+                    className="bg-transparent text-2xl font-bold text-slate-900 dark:text-white border-none outline-none cursor-pointer appearance-none pr-8 py-1 z-10"
+                  >
+                    {leagues.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 text-slate-900 dark:text-white pointer-events-none">expand_more</span>
+                </div>
+              ) : (
+                <h2 className="text-slate-900 dark:text-white text-2xl font-bold leading-tight tracking-tight">Calendario</h2>
+              )}
+            </div>
           )}
           <div className="flex items-center justify-end gap-3">
             {!isSearchOpen && (
@@ -134,12 +185,14 @@ const CalendarScreen: React.FC = () => {
                 <span className="material-symbols-outlined text-[24px]">search</span>
               </button>
             )}
-            <button
-              onClick={() => navigate('/fixture-generator')}
-              className="flex items-center justify-center rounded-full w-10 h-10 bg-primary text-white shadow-lg hover:bg-primary-dark transition-colors"
-            >
-              <span className="material-symbols-outlined text-[24px]">auto_fix</span>
-            </button>
+            {role === 'admin' && (
+              <button
+                onClick={() => navigate('/fixture-generator')}
+                className="flex items-center justify-center rounded-full w-10 h-10 bg-primary text-white shadow-lg hover:bg-primary-dark transition-colors"
+              >
+                <span className="material-symbols-outlined text-[24px]">auto_fix</span>
+              </button>
+            )}
           </div>
         </header>
 
@@ -203,8 +256,13 @@ const CalendarScreen: React.FC = () => {
                     {roundMatches.map((match) => (
                       <div
                         key={match.id}
-                        onClick={() => navigate('/referee-match-control', { state: { matchId: match.id } })}
-                        className="bg-white dark:bg-surface-dark rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:border-primary active:scale-[0.99] transition-all"
+                        onClick={() => {
+                          if (role === 'admin' || role === 'referee') {
+                            navigate('/referee-match-control', { state: { matchId: match.id } });
+                          }
+                        }}
+                        className={`bg-white dark:bg-surface-dark rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm transition-all ${(role === 'admin' || role === 'referee') ? 'cursor-pointer hover:border-primary active:scale-[0.99]' : ''
+                          }`}
                       >
                         <div className="flex justify-end items-center mb-3 text-xs text-slate-500 font-bold uppercase tracking-wider">
                           <span>{formatTime(match.start_time)}</span>

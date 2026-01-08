@@ -11,7 +11,12 @@ interface Player {
   photo_url?: string | null;
 }
 
-const CreateTeamScreen: React.FC = () => {
+interface CreateTeamScreenProps {
+  initialTeamId?: string;
+  initialLeagueId?: string;
+}
+
+const CreateTeamScreen: React.FC<CreateTeamScreenProps> = ({ initialTeamId, initialLeagueId }) => {
   // ... (rest of component)
   // Wrapping the replacement in a larger chunk to ensure context, but actually I need to target two specific areas.
   // I will split this into two calls or use multi-replace if the tool allowed, but replace_file_content is for contiguous. 
@@ -21,7 +26,9 @@ const CreateTeamScreen: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { league_id, teamId } = location.state || {}; // Expect league_id for create, teamId for edit
+  const { league_id: locLeagueId, teamId: locTeamId } = location.state || {};
+  const league_id = initialLeagueId || locLeagueId;
+  const teamId = initialTeamId || locTeamId;
 
   const isEditing = !!teamId;
 
@@ -134,11 +141,32 @@ const CreateTeamScreen: React.FC = () => {
         }
       }
 
+      // Lookup Manager by Email
+      let managerId = null;
+      if (captainEmail) {
+        // Query profiles by email. Note: 'profiles' usually matches 'auth.users' on ID/Email. 
+        // We assume 'email' column exists in 'profiles' as per schema line 8.
+        const { data: userData } = await supabase
+          .from('profiles')
+          .select('id, role')
+          .eq('email', captainEmail)
+          .single();
+
+        if (userData) {
+          managerId = userData.id;
+          // Automatically upgrade user role to captain if they are a standard user
+          if (userData.role === 'user' || !userData.role) {
+            await supabase.from('profiles').update({ role: 'captain' }).eq('id', managerId);
+          }
+        }
+      }
+
       // Map state to database columns
       const teamData = {
         name,
         captain_name: captainName,
         captain_email: captainEmail,
+        manager_id: managerId,
         home_kit_color: primaryColor,
         away_kit_color: secondaryColor,
         shield_url: shieldUrl,
@@ -343,7 +371,7 @@ const CreateTeamScreen: React.FC = () => {
         {/* Top Navigation Bar */}
         <div className="sticky top-0 z-50 flex items-center bg-background-light dark:bg-background-dark p-4 pb-2 justify-between border-b border-gray-200 dark:border-border-dark/30 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => initialTeamId ? navigate('/') : navigate(-1)}
             className="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-start focus:outline-none"
           >
             <span className="material-symbols-outlined text-2xl">arrow_back_ios</span>

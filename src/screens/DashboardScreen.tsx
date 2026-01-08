@@ -4,14 +4,19 @@ import { supabase } from '../supabaseClient';
 
 const DashboardScreen: React.FC = () => {
   const navigate = useNavigate();
+
   const [user, setUser] = useState<any>(null);
+  // const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [leagues, setLeagues] = useState<any[]>([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string>('');
   const [liveMatches, setLiveMatches] = useState<any[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
 
-  // Helper component for Live Timer
+  // ... LiveTimer ...
   const LiveTimer = ({ match }: { match: any }) => {
+    // ...
     const [time, setTime] = useState(match.elapsed_seconds || 0);
 
     useEffect(() => {
@@ -50,123 +55,169 @@ const DashboardScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchUserAndLeagues = async () => {
-      console.log('--- Dashboard Init ---');
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Get User & Role (Nullable)
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current User:', user);
       setUser(user);
 
+      /*
       if (user) {
-        console.log('Fetching leagues for owner_id:', user.id);
-        const { data: leaguesData, error } = await supabase
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setRole(profile?.role || 'user');
+      } else {
+        setRole(null); // Clear role if no user
+      }
+      */
+
+      // 2. Determine Scope (User Leagues or Public/All)
+      let currentLeagues: any[] = [];
+      let leagueIds: string[] = [];
+
+      if (user) {
+        // Fetch User's Created Leagues
+        const { data: myLeagues } = await supabase
           .from('leagues')
           .select('*')
           .eq('owner_id', user.id)
           .order('created_at', { ascending: false });
 
-        if (error) console.error('Error fetching leagues:', error);
-        if (leaguesData) {
-          setLeagues(leaguesData);
-          fetchMatches(leaguesData.map(l => l.id));
+        if (myLeagues && myLeagues.length > 0) {
+          currentLeagues = myLeagues;
         }
       }
-    };
 
-    // Fetch matches for user's leagues
-    const fetchMatches = async (leagueIds: string[]) => {
-      if (leagueIds.length === 0) return;
+      // If no user OR user has no leagues, fetch public leagues to show content
+      if (currentLeagues.length === 0) {
+        const { data: publicLeagues } = await supabase
+          .from('leagues')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10); // Limit to 10 public leagues
 
-      // Live Matches
-      const { data: live } = await supabase
-        .from('matches')
-        .select(`
-          *, 
-          home_team:teams!matches_home_team_id_fkey(name, shield_url), 
-          away_team:teams!matches_away_team_id_fkey(name, shield_url)
-        `)
-        .in('league_id', leagueIds)
-        .in('status', ['live', 'break']);
+        if (publicLeagues) {
+          currentLeagues = publicLeagues;
+        }
+      }
 
-      if (live) {
-        // Fetch events separately to avoid RLS/Join issues hiding the match
-        const matchIds = (live as any[]).map(m => m.id);
-        const { data: events } = await supabase
-          .from('match_events')
-          .select('*, player:players(name)')
-          .in('match_id', matchIds)
-          .order('created_at', { ascending: true });
+      setLeagues(currentLeagues);
+      if (currentLeagues.length > 0) {
+        // Default to first league if none selected
+        if (!selectedLeagueId) setSelectedLeagueId(currentLeagues[0].id);
+        leagueIds = currentLeagues.map(l => l.id);
+      }
 
-        const formattedLive = (live as any[]).map(m => {
-          const matchEvents = events ? events.filter(e => e.match_id === m.id) : [];
-          return {
+      // 3. Fetch Matches
+      if (leagueIds.length > 0) {
+        // Live Matches
+        const { data: live } = await supabase
+          .from('matches')
+          .select(`
+            *, 
+            home_team:teams!matches_home_team_id_fkey(name, shield_url), 
+            away_team:teams!matches_away_team_id_fkey(name, shield_url)
+          `)
+          .in('league_id', leagueIds)
+          .in('status', ['live', 'break']);
+
+        if (live) {
+          // Fetch events separately to avoid RLS/Join issues hiding the match
+          const matchIds = (live as any[]).map(m => m.id);
+          const { data: events } = await supabase
+            .from('match_events')
+            .select('*, player:players(name)')
+            .in('match_id', matchIds)
+            .order('created_at', { ascending: true }); // We sort manually below if needed, but fetch ordered
+
+          const formattedLive = (live as any[]).map(m => {
+            const matchEvents = events ? events.filter(e => e.match_id === m.id) : [];
+            return {
+              ...m,
+              home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
+              away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team,
+              events: matchEvents
+            };
+          });
+          setLiveMatches(formattedLive);
+        }
+
+        // Upcoming
+        const { data: upcoming } = await supabase
+          .from('matches')
+          .select(`*, home_team:teams!matches_home_team_id_fkey(name, shield_url), away_team:teams!matches_away_team_id_fkey(name, shield_url)`)
+          .in('league_id', leagueIds)
+          .eq('status', 'scheduled')
+          .gt('start_time', new Date().toISOString()) // Future only
+          .order('start_time', { ascending: true })
+          .limit(10); // Increased limit as we filter client side
+
+        if (upcoming) {
+          const formattedUpcoming = (upcoming as any[]).map(m => ({
             ...m,
             home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
             away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team,
-            events: matchEvents
-          };
-        });
-        setLiveMatches(formattedLive);
+          }));
+          setUpcomingMatches(formattedUpcoming);
+        }
+
+        // Recent
+        const { data: recent } = await supabase
+          .from('matches')
+          .select(`*, home_team:teams!matches_home_team_id_fkey(name, shield_url), away_team:teams!matches_away_team_id_fkey(name, shield_url)`)
+          .in('league_id', leagueIds)
+          .eq('status', 'finished')
+          .order('start_time', { ascending: false })
+          .limit(10);
+
+        if (recent) {
+          const formattedRecent = (recent as any[]).map(m => ({
+            ...m,
+            home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
+            away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team,
+          }));
+          setRecentMatches(formattedRecent);
+        }
       }
 
-      // Upcoming Matches
-      const { data: upcoming } = await supabase
-        .from('matches')
-        .select(`*, home_team:teams!matches_home_team_id_fkey(name, shield_url), away_team:teams!matches_away_team_id_fkey(name, shield_url)`)
-        .in('league_id', leagueIds)
-        .eq('status', 'scheduled')
-        .gte('start_time', new Date().toISOString()) // Only future matches
-        .order('start_time', { ascending: true })
-        .limit(5);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (upcoming) {
-        const formattedUpcoming = (upcoming as any[]).map(m => ({
-          ...m,
-          home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
-          away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team
-        }));
-        setUpcomingMatches(formattedUpcoming);
-      }
-
-      // Recent Matches
-      const { data: recent } = await supabase
-        .from('matches')
-        .select(`*, home_team:teams!matches_home_team_id_fkey(name, shield_url), away_team:teams!matches_away_team_id_fkey(name, shield_url), league:leagues(name)`)
-        .in('league_id', leagueIds)
-        .eq('status', 'finished')
-        .order('start_time', { ascending: false })
-        .limit(4);
-
-      if (recent) {
-        const formattedRecent = (recent as any[]).map(m => ({
-          ...m,
-          home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team,
-          away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team,
-          league: Array.isArray(m.league) ? m.league[0] : m.league
-        }));
-        setRecentMatches(formattedRecent);
-      }
-    };
-
-
-    fetchUserAndLeagues();
-
-    // REAL-TIME SUBSCRIPTION
-    const matchSubscription = supabase
+  /* Listen to Changes */
+  useEffect(() => {
+    const channel = supabase
       .channel('public:matches-dashboard')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'matches' },
-        () => fetchUserAndLeagues()
+        (payload) => {
+          console.log('Realtime update:', payload);
+          fetchDashboardData();
+        }
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'match_events' },
-        () => fetchUserAndLeagues()
+        { event: '*', schema: 'public', table: 'match_events' }, // Listen for events too
+        () => {
+          fetchDashboardData(); // Refetch to update events/score
+        }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(matchSubscription);
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -191,18 +242,37 @@ const DashboardScreen: React.FC = () => {
     return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
+  // Filtered Lists
+  // Filtered Lists
+  const displayedLive = liveMatches.filter(m => m.league_id === selectedLeagueId);
+  const displayedUpcoming = upcomingMatches.filter(m => m.league_id === selectedLeagueId);
+  const displayedRecent = recentMatches.filter(m => m.league_id === selectedLeagueId);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background-light dark:bg-background-dark">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased min-h-screen pb-24">
       {/* Top App Bar / Sticky Header Container */}
       <div className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-3">
-            {/* User Profile */}
+            {/* User Profile / Guest Header */}
             <div
-              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => navigate('/profile')}
+              className={`flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity ${
+                // Hide profile info on mobile if select is prominently needed, 
+                // but we can just shrink it or stack?
+                // For now, let's keep it but maybe hide text on very small screens?
+                ''
+                }`}
+              onClick={() => user ? navigate('/profile') : navigate('/admin-login')}
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden ring-2 ring-white dark:ring-slate-800 shadow-md flex items-center justify-center">
                   {user?.user_metadata?.avatar_url ? (
                     <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -210,27 +280,54 @@ const DashboardScreen: React.FC = () => {
                     <span className="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500">person</span>
                   )}
                 </div>
-                <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-background-light dark:border-background-dark"></div>
+                {user && <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-background-light dark:border-background-dark"></div>}
               </div>
-              <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Bienvenido</p>
-                <h2 className="text-sm font-bold leading-tight">
-                  {user ? (user.email?.split('@')[0] || 'Admin') : 'Cargando...'}
+              <div className="hidden xs:block">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{user ? 'Bienvenido' : 'Hola,'}</p>
+                <h2 className="text-sm font-bold leading-tight truncate max-w-[80px]">
+                  {user ? (user.email?.split('@')[0] || 'Usuario') : 'Invitado'}
                 </h2>
               </div>
             </div>
+
+            {/* League Selector (Centered/Flexible) */}
+            <div className="flex-1 px-4 flex justify-end md:justify-center">
+              {leagues.length > 0 && (
+                <select
+                  value={selectedLeagueId}
+                  onChange={(e) => setSelectedLeagueId(e.target.value)}
+                  className="bg-slate-100 dark:bg-slate-800 border-none text-sm font-bold rounded-lg py-2 px-3 max-w-[160px] truncate outline-none focus:ring-2 focus:ring-primary shadow-sm appearance-none cursor-pointer text-slate-700 dark:text-white"
+                  style={{ backgroundImage: 'none' }} // Remove default arrow if we want custom or just leave default
+                >
+                  {leagues.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             {/* Action Icons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button className="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">
                 <span className="material-symbols-outlined">search</span>
               </button>
-              <button
-                onClick={handleLogout}
-                className="flex items-center justify-center size-10 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                title="Cerrar Sesión"
-              >
-                <span className="material-symbols-outlined">logout</span>
-              </button>
+
+              {user ? (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center size-10 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  title="Cerrar Sesión"
+                >
+                  <span className="material-symbols-outlined">logout</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/admin-login')}
+                  className="flex items-center justify-center px-4 h-10 rounded-full bg-primary text-white text-xs font-bold shadow-md hover:bg-blue-600 transition-colors"
+                >
+                  Ingresar
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -238,45 +335,10 @@ const DashboardScreen: React.FC = () => {
 
       {/* Main Content Responsive Container */}
       <div className="max-w-7xl mx-auto w-full flex flex-col px-4 sm:px-6 lg:px-8">
-        {/* My Leagues Carousel (Keep as carousel mostly but allow wrapping on desktop) */}
-        <div className="pt-6 pb-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold tracking-tight">Mis Ligas</h3>
-            <button onClick={() => navigate('/directory')} className="text-xs font-semibold text-primary">Ver todas</button>
-          </div>
-          <div className="flex w-full overflow-x-auto no-scrollbar gap-4 pb-2 md:grid md:grid-cols-4 lg:grid-cols-6 md:overflow-visible flex-wrap">
-            {/* Create New League Item */}
-            <div className="flex flex-col items-center gap-2 min-w-[80px]">
-              <button
-                onClick={() => navigate('/create-league')}
-                className="size-[80px] rounded-2xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-400 dark:border-slate-600 text-primary hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-              >
-                <span className="material-symbols-outlined text-3xl">add</span>
-              </button>
-              <span className="text-xs font-medium text-center truncate w-full">Crear Liga</span>
-            </div>
 
-            {/* Render User Leagues */}
-            {leagues.map((league) => (
-              <div key={league.id} className="flex flex-col items-center gap-2 min-w-[80px]">
-                <button
-                  onClick={() => navigate(`/league/${league.id}`)}
-                  className="size-[80px] rounded-2xl bg-surface-light dark:bg-surface-dark flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden hover:scale-105 transition-transform"
-                >
-                  {league.logo_url ? (
-                    <img src={league.logo_url} alt={league.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="material-symbols-outlined text-3xl text-slate-400">emoji_events</span>
-                  )}
-                </button>
-                <span className="text-xs font-medium text-center truncate w-full max-w-[80px]">{league.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Live Now Section */}
-        {liveMatches.length > 0 && (
+        {displayedLive.length > 0 && (
           <div className="py-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="relative flex size-2.5">
@@ -287,7 +349,7 @@ const DashboardScreen: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-3">
-              {liveMatches.map(match => (
+              {displayedLive.map(match => (
                 <div key={match.id} className="min-w-[85vw] sm:min-w-0 snap-center md:snap-align-none">
                   <div className="bg-slate-900 rounded-3xl p-4 text-white shadow-xl relative overflow-hidden h-full flex flex-col justify-between">
                     {/* Background decorations */}
@@ -383,13 +445,13 @@ const DashboardScreen: React.FC = () => {
         {/* Upcoming Matches */}
         <div className="py-2">
           <h3 className="text-lg font-bold tracking-tight mb-3">Próximos Partidos</h3>
-          {upcomingMatches.length === 0 ? (
+          {displayedUpcoming.length === 0 ? (
             <p className="text-sm text-slate-500 italic">No hay partidos programados pronto.</p>
           ) : (
             <div className="flex flex-col gap-3 md:grid md:grid-cols-2 lg:grid-cols-3">
-              {upcomingMatches.map((match, index) => {
+              {displayedUpcoming.map((match, index) => {
                 const dateLabel = formatDateSimple(match.start_time);
-                const prevMatch = upcomingMatches[index - 1];
+                const prevMatch = displayedUpcoming[index - 1];
                 const prevDateLabel = prevMatch ? formatDateSimple(prevMatch.start_time) : null;
                 const showHeader = dateLabel !== prevDateLabel;
 
@@ -398,27 +460,30 @@ const DashboardScreen: React.FC = () => {
                     {showHeader && (
                       <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mt-1 md:col-span-2 lg:col-span-3">{dateLabel}</p>
                     )}
-                    <div className="bg-white dark:bg-surface-dark rounded-xl p-3 flex items-center shadow-sm border border-slate-200 dark:border-slate-800 h-full">
-                      <div className="flex flex-col items-center justify-center w-12 border-r border-slate-100 dark:border-slate-700 pr-3 mr-2">
-                        <span className="text-sm font-bold">{formatTime(match.start_time)}</span>
+                    <div className="bg-white dark:bg-surface-dark rounded-xl p-4 flex items-center shadow-sm border border-slate-200 dark:border-slate-800 h-full hover:shadow-md transition-shadow">
+                      <div className="flex flex-col items-center justify-center w-14 border-r border-slate-100 dark:border-slate-700 pr-4 mr-4">
+                        <span className="text-lg font-bold text-slate-900 dark:text-white">{formatTime(match.start_time)}</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Hora</span>
                       </div>
                       <div className="flex-1 flex items-center justify-between">
                         {/* Home Team */}
-                        <div className="flex-1 flex items-center gap-2 justify-end">
-                          <span className="font-medium text-xs text-right truncate">{match.home_team?.name}</span>
-                          <div className="size-6 min-w-[1.5rem] rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[8px] font-bold overflow-hidden">
-                            {match.home_team?.shield_url ? <img src={match.home_team.shield_url} className="w-full h-full object-cover" /> : match.home_team?.name?.substring(0, 3).toUpperCase()}
+                        <div className="flex-1 flex flex-col items-end gap-1">
+                          <div className="size-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
+                            {match.home_team?.shield_url ? <img src={match.home_team.shield_url} className="w-full h-full object-cover" /> : <span className="text-xs font-bold">{match.home_team?.name?.substring(0, 2).toUpperCase()}</span>}
                           </div>
+                          <span className="font-bold text-xs text-right truncate w-full">{match.home_team?.name}</span>
                         </div>
 
-                        <span className="text-[10px] uppercase font-bold text-slate-400 px-2">vs</span>
+                        <div className="px-3 flex flex-col items-center">
+                          <span className="text-xs font-black text-slate-300">VS</span>
+                        </div>
 
                         {/* Away Team */}
-                        <div className="flex-1 flex items-center gap-2 justify-start">
-                          <div className="size-6 min-w-[1.5rem] rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[8px] font-bold overflow-hidden">
-                            {match.away_team?.shield_url ? <img src={match.away_team.shield_url} className="w-full h-full object-cover" /> : match.away_team?.name?.substring(0, 3).toUpperCase()}
+                        <div className="flex-1 flex flex-col items-start gap-1">
+                          <div className="size-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
+                            {match.away_team?.shield_url ? <img src={match.away_team.shield_url} className="w-full h-full object-cover" /> : <span className="text-xs font-bold">{match.away_team?.name?.substring(0, 2).toUpperCase()}</span>}
                           </div>
-                          <span className="font-medium text-xs text-left truncate">{match.away_team?.name}</span>
+                          <span className="font-bold text-xs text-left truncate w-full">{match.away_team?.name}</span>
                         </div>
                       </div>
                     </div>
@@ -430,20 +495,49 @@ const DashboardScreen: React.FC = () => {
         </div>
 
         {/* Recent Results */}
-        {recentMatches.length > 0 && (
+        {displayedRecent.length > 0 && (
           <div className="py-4 pb-8">
             <h3 className="text-lg font-bold tracking-tight mb-3">Resultados Recientes</h3>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {recentMatches.map(match => (
-                <div key={match.id} className="bg-white dark:bg-surface-dark rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col gap-2">
-                  <span className="text-[10px] text-slate-400 truncate">{match.league?.name || 'Liga'} • {formatDateSimple(match.start_time)}</span>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold truncate max-w-[80px]">{match.home_team?.name}</span>
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">{match.home_score}</span>
+              {displayedRecent.map(match => (
+                <div
+                  key={match.id}
+                  onClick={() => navigate(`/match/${match.id}`)}
+                  className="bg-white dark:bg-surface-dark rounded-xl p-3 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col gap-2 hover:shadow-lg transition-shadow cursor-pointer"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">{match.league?.name || 'Liga'}</span>
+                    <span className="text-[10px] text-slate-500">{formatDateSimple(match.start_time)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-slate-500 truncate max-w-[80px]">{match.away_team?.name}</span>
-                    <span className="text-sm font-bold text-slate-500">{match.away_score}</span>
+
+                  {/* Home Team Row */}
+                  <div className={`flex justify-between items-center ${match.home_score > match.away_score ? 'opacity-100' : 'opacity-70'}`}>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <div className="size-5 rounded-full bg-slate-100 dark:bg-slate-700 flex-shrink-0 overflow-hidden">
+                        {match.home_team?.shield_url && <img src={match.home_team.shield_url} className="w-full h-full object-cover" />}
+                      </div>
+                      <span className={`text-sm truncate ${match.home_score > match.away_score ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
+                        {match.home_team?.name}
+                      </span>
+                    </div>
+                    <span className={`text-sm ${match.home_score > match.away_score ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
+                      {match.home_score}
+                    </span>
+                  </div>
+
+                  {/* Away Team Row */}
+                  <div className={`flex justify-between items-center ${match.away_score > match.home_score ? 'opacity-100' : 'opacity-70'}`}>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <div className="size-5 rounded-full bg-slate-100 dark:bg-slate-700 flex-shrink-0 overflow-hidden">
+                        {match.away_team?.shield_url && <img src={match.away_team.shield_url} className="w-full h-full object-cover" />}
+                      </div>
+                      <span className={`text-sm truncate ${match.away_score > match.home_score ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
+                        {match.away_team?.name}
+                      </span>
+                    </div>
+                    <span className={`text-sm ${match.away_score > match.home_score ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
+                      {match.away_score}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -451,17 +545,9 @@ const DashboardScreen: React.FC = () => {
           </div>
         )}
       </div>
-      {/* Floating Action Button (Admin/Creator) */}
-      <div className="fixed bottom-24 right-4 z-30">
-        <button
-          onClick={() => navigate('/create-match')}
-          className="bg-primary hover:bg-blue-600 text-white rounded-full size-14 shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-        >
-          <span className="material-symbols-outlined text-2xl">add</span>
-        </button>
-      </div>
     </div>
   );
 };
+
 
 export default DashboardScreen;

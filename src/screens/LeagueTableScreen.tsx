@@ -14,9 +14,7 @@ const LeagueTableScreen: React.FC = () => {
 
   useEffect(() => {
     const fetchLeagues = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      // Fetch all leagues for public view
       const { data } = await supabase
         .from('leagues')
         .select('*')

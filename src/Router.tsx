@@ -12,6 +12,9 @@ import MatchDetailsLiveScreen from './screens/MatchDetailsLiveScreen';
 import MatchManagementScreen from './screens/MatchManagementScreen';
 import PlayerJoinScreen from './screens/PlayerJoinScreen';
 import RefereeMatchControlScreen from './screens/RefereeMatchControlScreen';
+import MyLeaguesScreen from './screens/MyLeaguesScreen';
+import MyTeamScreen from './screens/MyTeamScreen';
+import MatchDetailsScreen from './screens/MatchDetailsScreen'; // Import
 import App from './App';
 import MainLayout from './components/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -27,19 +30,25 @@ const router = createBrowserRouter([
     children: [
       { path: '/admin-login', element: <AdminLoginScreen /> },
       {
-        element: <ProtectedRoute />,
+        element: <MainLayout />,
         children: [
+          // Public Routes
+          { path: '/', element: <DashboardScreen /> },
+          { path: '/directory', element: <DirectoryScreen /> },
+          { path: '/league-table', element: <LeagueTableScreen /> },
+          { path: '/match/:id', element: <MatchDetailsScreen /> },
+          { path: '/calendar', element: <CalendarScreen /> },
+          { path: '/league/:id', element: <LeagueManagementScreen /> },
+
+          // Protected Routes
           {
-            element: <MainLayout />,
+            element: <ProtectedRoute />,
             children: [
-              { path: '/', element: <DashboardScreen /> },
-              { path: '/calendar', element: <CalendarScreen /> },
+              { path: '/my-leagues', element: <MyLeaguesScreen /> }, // New Route
+              { path: '/my-team', element: <MyTeamScreen /> },
               { path: '/create-league', element: <CreateLeagueScreen /> },
               { path: '/create-team', element: <CreateTeamScreen /> },
-              { path: '/directory', element: <DirectoryScreen /> },
               { path: '/fixture-generator', element: <FixtureGeneratorScreen /> },
-              { path: '/league/:id', element: <LeagueManagementScreen /> },
-              { path: '/league-table', element: <LeagueTableScreen /> },
               { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
               { path: '/match-management', element: <MatchManagementScreen /> },
               { path: '/player-join', element: <PlayerJoinScreen /> },
