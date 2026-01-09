@@ -238,6 +238,25 @@ const CalendarScreen: React.FC = () => {
         return;
       }
 
+      // Conflict Validation: Check if teams are already playing in this round
+      const isHomePlaying = matches.some(m =>
+        m.round_number === editForm.round &&
+        m.id !== editingMatch?.id &&
+        (m.home_team_id === editForm.home_team_id || m.away_team_id === editForm.home_team_id)
+      );
+
+      const isAwayPlaying = matches.some(m =>
+        m.round_number === editForm.round &&
+        m.id !== editingMatch?.id &&
+        (m.home_team_id === editForm.away_team_id || m.away_team_id === editForm.away_team_id)
+      );
+
+      if (isHomePlaying || isAwayPlaying) {
+        showToast("Uno de los equipos ya juega en esta jornada", "error");
+        setUpdating(false);
+        return;
+      }
+
       // Construct ISO string
       const dateTimeString = `${editForm.date}T${editForm.time}:00`;
       const newDate = new Date(dateTimeString);
@@ -478,7 +497,8 @@ const CalendarScreen: React.FC = () => {
                       <div
                         key={match.id}
                         onClick={() => {
-                          if (role === 'admin' || role === 'referee') {
+                          const isOwner = user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id;
+                          if (role === 'admin' || role === 'referee' || isOwner) {
                             navigate('/referee-match-control', { state: { matchId: match.id } });
                           }
                         }}
@@ -518,8 +538,22 @@ const CalendarScreen: React.FC = () => {
                                 {match.home_score} - {match.away_score}
                               </div>
                             ) : (
-                              <div className="text-lg font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
-                                VS
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="text-lg font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
+                                  VS
+                                </div>
+                                {match.status === 'scheduled' && (role === 'admin' || role === 'referee' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate('/referee-match-control', { state: { matchId: match.id } });
+                                    }}
+                                    className="bg-primary hover:bg-primary-dark text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded-full shadow-lg shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                                    Iniciar
+                                  </button>
+                                )}
                               </div>
                             )}
                             <span className={`text-[10px] uppercase font-bold mt-1 px-2 py-0.5 rounded-full ${match.status === 'live' ? 'bg-red-500 text-white animate-pulse' : match.status === 'break' ? 'bg-orange-500 text-white' : 'text-slate-400'}`}>
@@ -613,12 +647,14 @@ const CalendarScreen: React.FC = () => {
               <div className="flex flex-col gap-3 mt-8">
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => { setEditingMatch(null); setIsCreating(false); }}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={handleSaveMatch}
                     disabled={updating}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-colors shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
@@ -630,6 +666,7 @@ const CalendarScreen: React.FC = () => {
 
                 {!isCreating && editingMatch?.status === 'scheduled' && (
                   <button
+                    type="button"
                     onClick={handleDeleteMatch}
                     disabled={updating}
                     className="w-full py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"

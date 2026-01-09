@@ -40,6 +40,7 @@ const router = createBrowserRouter([
           { path: '/match/:id', element: <MatchDetailsScreen /> },
           { path: '/calendar', element: <CalendarScreen /> },
           { path: '/league/:id', element: <LeagueManagementScreen /> },
+          { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
 
           // Protected Routes
           {
@@ -50,7 +51,7 @@ const router = createBrowserRouter([
               { path: '/create-league', element: <CreateLeagueScreen /> },
               { path: '/create-team', element: <CreateTeamScreen /> },
               { path: '/fixture-generator', element: <FixtureGeneratorScreen /> },
-              { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
+
               { path: '/match-management', element: <MatchManagementScreen /> },
               { path: '/player-join', element: <PlayerJoinScreen /> },
               { path: '/referee-match-control', element: <RefereeMatchControlScreen /> },

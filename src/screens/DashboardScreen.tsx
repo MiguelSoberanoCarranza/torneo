@@ -425,8 +425,8 @@ const DashboardScreen: React.FC = () => {
 
             <div className="flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-3">
               {displayedLive.map(match => (
-                <div key={match.id} className="min-w-[85vw] sm:min-w-0 snap-center md:snap-align-none">
-                  <div className="bg-slate-900 rounded-3xl p-4 text-white shadow-xl relative overflow-hidden h-full flex flex-col justify-between">
+                <div key={match.id} className="min-w-[85vw] sm:min-w-0 snap-center md:snap-align-none cursor-pointer" onClick={() => navigate('/match-details-live', { state: { matchId: match.id } })}>
+                  <div className="bg-slate-900 rounded-3xl p-4 text-white shadow-xl relative overflow-hidden h-full flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
                     {/* Background decorations */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -tranne-y-1/2 translate-x-1/2"></div>
 
