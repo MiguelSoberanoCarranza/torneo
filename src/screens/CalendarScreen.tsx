@@ -11,8 +11,11 @@ interface Match {
   status: string;
   home_team: { name: string; shield_url?: string };
   away_team: { name: string; shield_url?: string };
+  home_team_id: string;
+  away_team_id: string;
+  location?: string;
   league?: { name: string };
-  league_id?: string; // Added league_id for filtering
+  league_id?: string;
   round_number?: number;
 }
 
@@ -27,7 +30,22 @@ const CalendarScreen: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'next_round'>('all');
   const [leagues, setLeagues] = useState<any[]>([]); // Added leagues state
-  const [selectedLeagueId, setSelectedLeagueId] = useState<string>(''); // Added selectedLeagueId state
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string>('');
+  const [teams, setTeams] = useState<any[]>([]); // Teams for the selector
+
+  // Edit State
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [editForm, setEditForm] = useState({
+    date: '',
+    time: '',
+    round: 1,
+    home_team_id: '',
+    away_team_id: '',
+    location: ''
+  });
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     const fetchRoleAndMatches = async () => {
@@ -50,6 +68,8 @@ const CalendarScreen: React.FC = () => {
         setSelectedLeagueId(prev => prev || (leaguesData.length > 0 ? leaguesData[0].id : ''));
       }
 
+
+
       // Fetch Matches
       const { data, error } = await supabase
         .from('matches')
@@ -60,7 +80,10 @@ const CalendarScreen: React.FC = () => {
             away_score, 
             status,
             round_number,
+            location,
             league_id,
+            home_team_id,
+            away_team_id,
             home_team:teams!matches_home_team_id_fkey(name, shield_url),
             away_team:teams!matches_away_team_id_fkey(name, shield_url),
             league:leagues(name)
@@ -83,7 +106,27 @@ const CalendarScreen: React.FC = () => {
     };
 
     fetchRoleAndMatches();
+    fetchRoleAndMatches();
   }, [showToast]);
+
+  // Fetch Teams when League Changes
+  useEffect(() => {
+    const fetchTeams = async () => {
+      if (!selectedLeagueId) {
+        setTeams([]);
+        return;
+      }
+      const { data: teamsData } = await supabase
+        .from('teams')
+        .select('id, name')
+        .eq('league_id', selectedLeagueId)
+        .order('name');
+
+      if (teamsData) setTeams(teamsData);
+    };
+
+    fetchTeams();
+  }, [selectedLeagueId]);
 
   // Filter matches
   const filteredMatchesList = matches.filter(match => {
@@ -137,6 +180,165 @@ const CalendarScreen: React.FC = () => {
     return new Date(dateString).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleEditClick = (match: Match) => {
+    const dateObj = new Date(match.start_time);
+    // Format YYYY-MM-DD
+    const date = dateObj.toISOString().split('T')[0];
+    // Format HH:mm
+    const time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    setEditingMatch(match);
+    setIsCreating(false);
+    setEditForm({
+      date,
+      time,
+      round: match.round_number || 1,
+      home_team_id: match.home_team_id,
+      away_team_id: match.away_team_id,
+      location: match.location || ''
+    });
+  };
+
+  const handleCreateClick = () => {
+    // Default values
+    const today = new Date();
+    const date = today.toISOString().split('T')[0];
+    const time = '09:00'; // Default start time
+
+    setIsCreating(true);
+    setEditingMatch(null);
+    setEditForm({
+      date,
+      time,
+      round: nextRoundNumber || 1, // Suggest next round
+      home_team_id: '',
+      away_team_id: '',
+      location: ''
+    });
+  };
+
+  const handleSaveMatch = async () => {
+    if (!selectedLeagueId) {
+      showToast("Error: No hay liga seleccionada", "error");
+      return;
+    }
+    setUpdating(true);
+
+    try {
+      // Validate inputs
+      if (!editForm.home_team_id || !editForm.away_team_id) {
+        showToast("Selecciona ambos equipos", "error");
+        setUpdating(false);
+        return;
+      }
+
+      // Construct ISO string
+      const dateTimeString = `${editForm.date}T${editForm.time}:00`;
+      const newDate = new Date(dateTimeString);
+
+      if (isCreating) {
+        // INSERT Logic
+        const { data, error } = await supabase
+          .from('matches')
+          .insert([{
+            league_id: selectedLeagueId,
+            home_team_id: editForm.home_team_id,
+            away_team_id: editForm.away_team_id,
+            start_time: newDate.toISOString(),
+            status: 'scheduled',
+            round_number: editForm.round,
+            location: editForm.location
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        showToast('Partido creado', 'success');
+        setIsCreating(false);
+
+        const homeTeam = teams.find(t => t.id === editForm.home_team_id);
+        const awayTeam = teams.find(t => t.id === editForm.away_team_id);
+
+        const newMatch: Match = {
+          ...data,
+          home_team: homeTeam || { name: 'Local' },
+          away_team: awayTeam || { name: 'Visitante' }
+        };
+
+        setMatches(prev => [...prev, newMatch].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
+
+      } else if (editingMatch) {
+        // UPDATE Logic
+        const { error } = await supabase
+          .from('matches')
+          .update({
+            start_time: newDate.toISOString(),
+            round_number: editForm.round,
+            home_team_id: editForm.home_team_id,
+            away_team_id: editForm.away_team_id,
+            location: editForm.location
+          })
+          .eq('id', editingMatch.id);
+
+        if (error) throw error;
+
+        showToast('Partido actualizado', 'success');
+        setEditingMatch(null);
+
+        // Optimistic update
+        const newHomeTeam = teams.find(t => t.id === editForm.home_team_id);
+        const newAwayTeam = teams.find(t => t.id === editForm.away_team_id);
+
+        setMatches(prev => prev.map(m => m.id === editingMatch.id ? {
+          ...m,
+          start_time: newDate.toISOString(),
+          round_number: editForm.round,
+          home_team_id: editForm.home_team_id,
+          away_team_id: editForm.away_team_id,
+          location: editForm.location,
+          home_team: newHomeTeam ? { name: newHomeTeam.name, shield_url: m.home_team.shield_url } : m.home_team,
+          away_team: newAwayTeam ? { name: newAwayTeam.name, shield_url: m.away_team.shield_url } : m.away_team
+        } : m));
+      }
+
+    } catch (error: any) {
+      console.error('Error saving match:', error);
+      showToast('Error al guardar', 'error');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteMatch = async () => {
+    if (!editingMatch) return;
+
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este partido?')) {
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', editingMatch.id);
+
+      if (error) throw error;
+
+      showToast('Partido eliminado', 'success');
+      setMatches(prev => prev.filter(m => m.id !== editingMatch.id));
+      setEditingMatch(null);
+    } catch (error) {
+      console.error('Error deleting match:', error);
+      showToast('Error al eliminar', 'error');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+
+
   return (
     <div className="bg-background-light dark:bg-background-dark transition-colors duration-200 min-h-screen">
       {/* Wrapper to replace max-w-md with responsive max-w */}
@@ -189,13 +391,22 @@ const CalendarScreen: React.FC = () => {
             )}
 
             {user && leagues.find(l => l.id === selectedLeagueId)?.owner_id === user.id && (
-              <button
-                onClick={() => navigate('/fixture-generator')}
-                className="flex items-center justify-center rounded-full w-10 h-10 bg-primary text-white shadow-lg hover:bg-primary-dark transition-colors"
-                title="Generador Automático"
-              >
-                <span className="material-symbols-outlined text-[24px]">auto_fix</span>
-              </button>
+              <>
+                <button
+                  onClick={handleCreateClick}
+                  className="flex items-center justify-center rounded-full w-10 h-10 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  title="Crear Partido Manualmente"
+                >
+                  <span className="material-symbols-outlined text-[24px]">add</span>
+                </button>
+                <button
+                  onClick={() => navigate('/fixture-generator')}
+                  className="flex items-center justify-center rounded-full w-10 h-10 bg-primary text-white shadow-lg hover:bg-primary-dark transition-colors"
+                  title="Generador Automático"
+                >
+                  <span className="material-symbols-outlined text-[24px]">auto_fix</span>
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -268,8 +479,21 @@ const CalendarScreen: React.FC = () => {
                         className={`bg-white dark:bg-surface-dark rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm transition-all ${(role === 'admin' || role === 'referee') ? 'cursor-pointer hover:border-primary active:scale-[0.99]' : ''
                           }`}
                       >
-                        <div className="flex justify-end items-center mb-3 text-xs text-slate-500 font-bold uppercase tracking-wider">
-                          <span>{formatTime(match.start_time)}</span>
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{formatTime(match.start_time)}</span>
+                          {/* Edit Button */}
+                          {match.status === 'scheduled' && (role === 'admin' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClick(match);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
+                              title="Editar Partido"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -313,6 +537,104 @@ const CalendarScreen: React.FC = () => {
             })
           )}
         </div>
+
+        {/* Edit Match Modal */}
+        {(editingMatch || isCreating) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-surface-dark rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                {isCreating ? 'Crear Partido' : 'Editar Partido'}
+              </h3>
+
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Jornada</label>
+                  <input
+                    type="number"
+                    value={editForm.round}
+                    onChange={e => setEditForm({ ...editForm, round: parseInt(e.target.value) || 0 })}
+                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Local</label>
+                    <select
+                      value={editForm.home_team_id}
+                      onChange={(e) => setEditForm({ ...editForm, home_team_id: e.target.value })}
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm appearance-none"
+                    >
+                      <option value="">Seleccionar</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Visitante</label>
+                    <select
+                      value={editForm.away_team_id}
+                      onChange={(e) => setEditForm({ ...editForm, away_team_id: e.target.value })}
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm appearance-none"
+                    >
+                      <option value="">Seleccionar</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Fecha</label>
+                    <input
+                      type="date"
+                      value={editForm.date}
+                      onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Hora</label>
+                    <input
+                      type="time"
+                      value={editForm.time}
+                      onChange={e => setEditForm({ ...editForm, time: e.target.value })}
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 mt-8">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => { setEditingMatch(null); setIsCreating(false); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveMatch}
+                    disabled={updating}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-colors shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+                  >
+                    {updating && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}
+                    {isCreating ? 'Crear' : 'Guardar'}
+                  </button>
+                </div>
+
+                {!isCreating && editingMatch?.status === 'scheduled' && (
+                  <button
+                    onClick={handleDeleteMatch}
+                    disabled={updating}
+                    className="w-full py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
+                  >
+                    Eliminar Partido
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

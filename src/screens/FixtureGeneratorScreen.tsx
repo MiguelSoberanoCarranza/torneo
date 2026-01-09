@@ -18,13 +18,22 @@ const FixtureGeneratorScreen: React.FC = () => {
   const [matchDuration, setMatchDuration] = useState<number>(40);
   const [breakDuration, setBreakDuration] = useState<number>(10);
   const [selectedDays, setSelectedDays] = useState<string[]>(['Sat']);
+  const [isHomeAndAway, setIsHomeAndAway] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
   // Load Leagues
   useEffect(() => {
     const fetchLeagues = async () => {
-      const { data } = await supabase.from('leagues').select('id, name, match_duration');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('leagues')
+        .select('id, name, match_duration')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
+
       if (data) {
         setLeagues(data);
         if (data.length > 0) {
@@ -128,6 +137,53 @@ const FixtureGeneratorScreen: React.FC = () => {
         ];
 
         currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // 2.5 Second Leg (Ida y Vuelta)
+      if (isHomeAndAway) {
+        // Clone first leg matches to avoid reference issues
+        const firstLegMatches = [...matches];
+
+        // Group first leg by round to iterate round by round
+        const rounds: Record<number, any[]> = {};
+        firstLegMatches.forEach(m => {
+          if (!rounds[m.round_number]) rounds[m.round_number] = [];
+          rounds[m.round_number].push(m);
+        });
+
+        for (let r = 1; r <= numRounds; r++) {
+          // Find next valid day
+          while (!isValidDay(currentDate, selectedDays)) {
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          let currentHour = startHour;
+          let currentMinute = startMinute;
+
+          const roundMatches = rounds[r] || [];
+
+          for (const m of roundMatches) {
+            const matchDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), currentHour, currentMinute);
+
+            matches.push({
+              league_id: selectedLeagueId,
+              home_team_id: m.away_team_id, // Swap Home/Away
+              away_team_id: m.home_team_id, // Swap Home/Away
+              start_time: matchDate.toISOString(),
+              status: 'scheduled',
+              round_number: numRounds + r, // Continue round numbering
+              location: 'Cancha Principal'
+            });
+
+            // Increment time
+            currentMinute += slotDurationMinutes;
+            while (currentMinute >= 60) {
+              currentMinute -= 60;
+              currentHour += 1;
+            }
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
       }
 
       // 3. Bulk Insert
@@ -263,6 +319,31 @@ const FixtureGeneratorScreen: React.FC = () => {
             ))}
           </div>
           <p className="text-xs text-slate-400">El sistema buscará el próximo día disponible a partir de la fecha de inicio.</p>
+        </div>
+
+        {/* Advanced Rules */}
+        <div className="pt-2">
+          <h3 className="text-lg font-bold text-[#111418] dark:text-white mb-3">Reglas Avanzadas</h3>
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined">sync_alt</span>
+              </div>
+              <div>
+                <p className="font-bold text-[#111418] dark:text-white">Ida y Vuelta</p>
+                <p className="text-xs text-slate-500">Dos partidos por enfrentamiento</p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={isHomeAndAway}
+                onChange={(e) => setIsHomeAndAway(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/30 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            </label>
+          </div>
         </div>
 
       </div>

@@ -381,16 +381,7 @@ const DashboardScreen: React.FC = () => {
 
             {/* Action Icons (Search + Logout) */}
             <div className="flex items-center gap-2 shrink-0">
-              {/* Search button ... */}
-              {user && leagues.find(l => l.id === selectedLeagueId)?.owner_id === user.id && (
-                <button
-                  onClick={() => navigate('/create-match')}
-                  className="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
-                  title="Crear Partido"
-                >
-                  <span className="material-symbols-outlined">add_circle</span>
-                </button>
-              )}
+
               {/* Search button ... */}
               <button className="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors">
                 <span className="material-symbols-outlined">search</span>
