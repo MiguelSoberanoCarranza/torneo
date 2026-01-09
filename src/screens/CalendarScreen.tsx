@@ -59,15 +59,47 @@ const CalendarScreen: React.FC = () => {
       }
       setUser(user);
 
-      // Fetch Leagues
-      const { data: leaguesData } = await supabase.from('leagues').select('id, name, owner_id').order('created_at', { ascending: false });
-      if (leaguesData) {
-        setLeagues(leaguesData);
-        // Default to first league if none selected. Using functional update to avoid overwriting user selection if re-fetching?
-        // Actually, just set if empty.
-        setSelectedLeagueId(prev => prev || (leaguesData.length > 0 ? leaguesData[0].id : ''));
+      // Fetch Leagues with Priority
+      let currentLeagues: any[] = [];
+      let myFollows: string[] = [];
+
+      if (user) {
+        const { data: follows } = await supabase.from('league_followers').select('league_id').eq('user_id', user.id);
+        if (follows) {
+          myFollows = follows.map(f => f.league_id);
+          if (myFollows.length > 0) {
+            const { data: followed } = await supabase.from('leagues').select('id, name, owner_id').in('id', myFollows);
+            if (followed) currentLeagues = [...currentLeagues, ...followed];
+          }
+        }
+        const { data: owned } = await supabase.from('leagues').select('id, name, owner_id').eq('owner_id', user.id);
+        if (owned) {
+          const existingIds = new Set(currentLeagues.map(l => l.id));
+          owned.forEach(l => !existingIds.has(l.id) && currentLeagues.push(l));
+        }
       }
 
+      const { data: publicLeagues } = await supabase.from('leagues').select('id, name, owner_id').order('created_at', { ascending: false }).limit(20);
+      if (publicLeagues) {
+        const existingIds = new Set(currentLeagues.map(l => l.id));
+        publicLeagues.forEach(l => !existingIds.has(l.id) && currentLeagues.push(l));
+      }
+
+      // Sort
+      currentLeagues.sort((a, b) => {
+        const aFollow = myFollows.includes(a.id) ? 1 : 0;
+        const bFollow = myFollows.includes(b.id) ? 1 : 0;
+        if (aFollow !== bFollow) return bFollow - aFollow;
+        const aOwner = user && a.owner_id === user.id ? 1 : 0;
+        const bOwner = user && b.owner_id === user.id ? 1 : 0;
+        if (aOwner !== bOwner) return bOwner - aOwner;
+        return 0;
+      });
+
+      if (currentLeagues.length > 0) {
+        setLeagues(currentLeagues);
+        setSelectedLeagueId(prev => prev || currentLeagues[0].id);
+      }
 
 
       // Fetch Matches

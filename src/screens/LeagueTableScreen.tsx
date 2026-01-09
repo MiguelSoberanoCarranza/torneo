@@ -42,15 +42,74 @@ const LeagueTableScreen: React.FC = () => {
 
   useEffect(() => {
     const fetchLeagues = async () => {
-      // Fetch all leagues for public view
-      const { data } = await supabase
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      let currentLeagues: any[] = [];
+      let myFollows: string[] = [];
+
+      if (user) {
+        // 1. Fetch Followed Leagues
+        const { data: follows } = await supabase
+          .from('league_followers')
+          .select('league_id')
+          .eq('user_id', user.id);
+
+        if (follows) {
+          myFollows = follows.map(f => f.league_id);
+          // Explicitly fetch details of followed leagues
+          if (myFollows.length > 0) {
+            const { data: followedLeagues } = await supabase.from('leagues').select('*').in('id', myFollows);
+            if (followedLeagues) currentLeagues = [...currentLeagues, ...followedLeagues];
+          }
+        }
+
+        // 2. Fetch Created Leagues
+        const { data: myLeagues } = await supabase
+          .from('leagues')
+          .select('*')
+          .eq('owner_id', user.id);
+
+        if (myLeagues) {
+          // Merge avoiding duplicates
+          const existingIds = new Set(currentLeagues.map(l => l.id));
+          myLeagues.forEach(l => {
+            if (!existingIds.has(l.id)) currentLeagues.push(l);
+          });
+        }
+      }
+
+      // 3. Fetch Public Leagues (Limit 20)
+      const { data: publicLeagues } = await supabase
         .from('leagues')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-      if (data && data.length > 0) {
-        setLeagues(data);
-        setSelectedLeagueId(data[0].id);
+      if (publicLeagues) {
+        const existingIds = new Set(currentLeagues.map(l => l.id));
+        publicLeagues.forEach(l => {
+          if (!existingIds.has(l.id)) currentLeagues.push(l);
+        });
+      }
+
+      // Sort: Followed first, then Created
+      currentLeagues.sort((a, b) => {
+        const aFollow = myFollows.includes(a.id) ? 1 : 0;
+        const bFollow = myFollows.includes(b.id) ? 1 : 0;
+        if (aFollow !== bFollow) return bFollow - aFollow;
+
+        const aOwner = user && a.owner_id === user.id ? 1 : 0;
+        const bOwner = user && b.owner_id === user.id ? 1 : 0;
+        if (aOwner !== bOwner) return bOwner - aOwner;
+
+        return 0;
+      });
+
+      if (currentLeagues.length > 0) {
+        setLeagues(currentLeagues);
+        // Only override if none selected (or first load)
+        setSelectedLeagueId(prev => prev || currentLeagues[0].id);
       } else {
         setLoading(false);
       }

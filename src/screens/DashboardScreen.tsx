@@ -101,11 +101,6 @@ const DashboardScreen: React.FC = () => {
       let currentLeagues: any[] = [];
       let leagueIds: string[] = [];
 
-      // Strategy: Fetch ALL public leagues for guest (limit 20?), 
-      // or if user logged in, fetch followed + created + public fallback.
-      // Simplify: Fetch top 20 leagues, then sort followed to top.
-      // Or better: Fetch specific followed leagues + generic public list.
-
       if (user) {
         // Fetch User's Created Leagues
         const { data: myLeagues } = await supabase
@@ -114,9 +109,27 @@ const DashboardScreen: React.FC = () => {
           .eq('owner_id', user.id);
 
         if (myLeagues) currentLeagues = [...currentLeagues, ...myLeagues];
+
+        // Fetch User's Followed Leagues Explicitly (to ensure they are in the list even if not in top 20 public)
+        if (myFollows.length > 0) {
+          const { data: followedLeagues } = await supabase
+            .from('leagues')
+            .select('*')
+            .in('id', myFollows);
+
+          if (followedLeagues) {
+            // Merge avoiding duplicates
+            const existingIds = new Set(currentLeagues.map(l => l.id));
+            followedLeagues.forEach(l => {
+              if (!existingIds.has(l.id)) {
+                currentLeagues.push(l);
+              }
+            });
+          }
+        }
       }
 
-      // Always fetch public/active leagues to fill selector
+      // Always fetch public/active leagues to fill selector (fallback)
       const { data: publicLeagues } = await supabase
         .from('leagues')
         .select('*')
@@ -138,7 +151,13 @@ const DashboardScreen: React.FC = () => {
         const aFollow = myFollows.includes(a.id) ? 1 : 0;
         const bFollow = myFollows.includes(b.id) ? 1 : 0;
         if (aFollow !== bFollow) return bFollow - aFollow; // Followed first
-        return 0; // Keep existing order (created/date)
+
+        // Secondary sort: Created by me
+        const aOwner = user && a.owner_id === user.id ? 1 : 0;
+        const bOwner = user && b.owner_id === user.id ? 1 : 0;
+        if (aOwner !== bOwner) return bOwner - aOwner;
+
+        return 0;
       });
 
       setLeagues(currentLeagues);
