@@ -418,13 +418,13 @@ const CalendarScreen: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="flex-1 flex items-center">
+          <div className="flex-1 flex items-center min-w-0">
               {leagues.length > 0 ? (
-                <div className="relative group">
+                <div className="relative group min-w-0">
                   <select
                     value={selectedLeagueId}
                     onChange={(e) => setSelectedLeagueId(e.target.value)}
-                    className="bg-transparent text-2xl font-bold text-slate-900 dark:text-white border-none outline-none cursor-pointer appearance-none pr-8 py-1 z-10"
+                    className="bg-transparent text-xl md:text-2xl font-bold text-slate-900 dark:text-white border-none outline-none cursor-pointer appearance-none pr-8 py-1 z-10 truncate max-w-full"
                   >
                     {leagues.map(l => (
                       <option key={l.id} value={l.id}>{l.name}</option>
@@ -437,7 +437,7 @@ const CalendarScreen: React.FC = () => {
               )}
             </div>
           )}
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-2 md:gap-3 shrink-0">
             {!isSearchOpen && (
               <button
                 onClick={() => setIsSearchOpen(true)}

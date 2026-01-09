@@ -327,47 +327,47 @@ const LeagueTableScreen: React.FC = () => {
             {activeTab === 'general' && (
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                  <table className="w-full text-left text-sm border-collapse min-w-full md:min-w-[600px]">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 dark:text-slate-400 font-bold bg-slate-50 dark:bg-slate-800/50">
-                        <th className="px-4 py-3 w-10 text-center sticky left-0 bg-slate-50 dark:bg-slate-800">Pos</th>
-                        <th className="px-2 py-3 sticky left-10 bg-slate-50 dark:bg-slate-800">Equipo</th>
-                        <th className="px-2 py-3 text-center w-10">PJ</th>
-                        <th className="px-2 py-3 text-center w-10">G</th>
-                        <th className="px-2 py-3 text-center w-10">E</th>
-                        <th className="px-2 py-3 text-center w-10">P</th>
-                        <th className="px-2 py-3 text-center w-10 text-slate-400">GF</th>
-                        <th className="px-2 py-3 text-center w-10 text-slate-400">GC</th>
+                        <th className="px-2 md:px-4 py-3 w-8 md:w-10 text-center sticky left-0 bg-slate-50 dark:bg-slate-800">Pos</th>
+                        <th className="px-2 py-3 sticky left-8 md:left-10 bg-slate-50 dark:bg-slate-800">Equipo</th>
+                        <th className="px-2 py-3 text-center w-8 md:w-10">PJ</th>
+                        <th className="px-2 py-3 text-center w-10 hidden md:table-cell">G</th>
+                        <th className="px-2 py-3 text-center w-10 hidden md:table-cell">E</th>
+                        <th className="px-2 py-3 text-center w-10 hidden md:table-cell">P</th>
+                        <th className="px-2 py-3 text-center w-10 text-slate-400 hidden md:table-cell">GF</th>
+                        <th className="px-2 py-3 text-center w-10 text-slate-400 hidden md:table-cell">GC</th>
                         <th className="px-2 py-3 text-center w-10">DIF</th>
-                        <th className="px-4 py-3 text-center w-14 font-black text-slate-900 dark:text-white bg-slate-100/50 dark:bg-white/5">PTS</th>
+                        <th className="px-2 md:px-4 py-3 text-center w-12 md:w-14 font-black text-slate-900 dark:text-white bg-slate-100/50 dark:bg-white/5">PTS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {standings.map((team, index) => (
                         <tr key={team.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-4 py-3 text-center font-bold text-slate-400 sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30">
+                          <td className="px-2 md:px-4 py-3 text-center font-bold text-slate-400 sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30 text-xs md:text-sm">
                             {index + 1}
                           </td>
-                          <td className="px-2 py-3 sticky left-10 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30">
-                            <div className="flex items-center gap-3">
-                              <div className="size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0 border border-slate-200 dark:border-slate-600">
+                          <td className="px-2 py-3 sticky left-8 md:left-10 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30">
+                            <div className="flex items-center gap-2 md:gap-3">
+                              <div className="size-6 md:size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0 border border-slate-200 dark:border-slate-600">
                                 {team.shield_url ? <img src={team.shield_url} className="w-full h-full object-cover" /> : team.name.substring(0, 2).toUpperCase()}
                               </div>
-                              <span className="font-bold text-slate-900 dark:text-white truncate max-w-[140px]">{team.name}</span>
+                              <span className="font-bold text-slate-900 dark:text-white truncate max-w-[100px] md:max-w-[140px] text-xs md:text-sm">{team.name}</span>
                             </div>
                           </td>
-                          <td className="px-2 py-3 text-center font-bold text-slate-600 dark:text-slate-300">{team.played}</td>
-                          <td className="px-2 py-3 text-center text-slate-500 dark:text-slate-400">{team.won}</td>
-                          <td className="px-2 py-3 text-center text-slate-500 dark:text-slate-400">{team.drawn}</td>
-                          <td className="px-2 py-3 text-center text-slate-500 dark:text-slate-400">{team.lost}</td>
-                          <td className="px-2 py-3 text-center text-slate-400 text-xs">{team.gf}</td>
-                          <td className="px-2 py-3 text-center text-slate-400 text-xs">{team.ga}</td>
-                          <td className="px-2 py-3 text-center font-medium">
+                          <td className="px-2 py-3 text-center font-bold text-slate-600 dark:text-slate-300 text-xs md:text-sm">{team.played}</td>
+                          <td className="px-2 py-3 text-center text-slate-500 dark:text-slate-400 hidden md:table-cell">{team.won}</td>
+                          <td className="px-2 py-3 text-center text-slate-500 dark:text-slate-400 hidden md:table-cell">{team.drawn}</td>
+                          <td className="px-2 py-3 text-center text-slate-500 dark:text-slate-400 hidden md:table-cell">{team.lost}</td>
+                          <td className="px-2 py-3 text-center text-slate-400 text-xs hidden md:table-cell">{team.gf}</td>
+                          <td className="px-2 py-3 text-center text-slate-400 text-xs hidden md:table-cell">{team.ga}</td>
+                          <td className="px-2 py-3 text-center font-medium text-xs md:text-sm">
                             <span className={team.gd > 0 ? "text-emerald-500" : team.gd < 0 ? "text-red-500" : "text-slate-400"}>
                               {team.gd > 0 ? `+${team.gd}` : team.gd}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-center font-black text-lg text-primary bg-slate-50 dark:bg-white/5">
+                          <td className="px-2 md:px-4 py-3 text-center font-black text-sm md:text-lg text-primary bg-slate-50 dark:bg-white/5">
                             {team.points}
                           </td>
                         </tr>

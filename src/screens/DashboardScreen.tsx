@@ -345,7 +345,7 @@ const DashboardScreen: React.FC = () => {
           <div className="flex items-center justify-between py-3">
             {/* User Profile / Guest Header */}
             <div
-              className={`flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity`}
+              className={`flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity shrink-0`}
               onClick={() => user ? navigate('/profile') : navigate('/admin-login')}
             >
               {/* ... User Avatar ... */}
@@ -359,7 +359,7 @@ const DashboardScreen: React.FC = () => {
                 </div>
                 {user && <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-background-light dark:border-background-dark"></div>}
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col hidden sm:flex">
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{user ? 'Bienvenido' : 'Hola,'}</p>
                 <h2 className="text-sm font-bold leading-tight truncate max-w-[120px]">
                   {user ? (user.profile?.full_name || user.email?.split('@')[0] || 'Usuario') : 'Invitado'}
@@ -368,15 +368,15 @@ const DashboardScreen: React.FC = () => {
             </div>
 
             {/* League Selector (Revised) */}
-            <div className="flex-1 px-4 flex justify-end md:justify-center items-center gap-2">
+            <div className="flex-1 px-2 md:px-4 flex justify-end md:justify-center items-center gap-2 min-w-0">
               {leagues.length > 0 && (
                 <>
-                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 pr-3 border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] font-bold uppercase text-slate-400 pl-2">Liga:</span>
+                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 pr-3 border border-slate-200 dark:border-slate-700 min-w-0 max-w-full">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 pl-2 hidden sm:inline">Liga:</span>
                     <select
                       value={selectedLeagueId}
                       onChange={(e) => setSelectedLeagueId(e.target.value)}
-                      className="bg-transparent border-none text-sm font-bold max-w-[140px] truncate outline-none focus:ring-0 cursor-pointer text-slate-800 dark:text-white appearance-none"
+                      className="bg-transparent border-none text-sm font-bold max-w-full truncate outline-none focus:ring-0 cursor-pointer text-slate-800 dark:text-white appearance-none"
                     >
                       {leagues.map(l => (
                         <option key={l.id} value={l.id}>
@@ -442,9 +442,9 @@ const DashboardScreen: React.FC = () => {
               <h3 className="text-lg font-bold tracking-tight">En Juego</h3>
             </div>
 
-            <div className="flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-3">
+            <div className="flex overflow-x-auto pb-4 gap-4 snap-x no-scrollbar md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible md:pb-0">
               {displayedLive.map(match => (
-                <div key={match.id} className="min-w-[85vw] sm:min-w-0 snap-center md:snap-align-none cursor-pointer" onClick={() => navigate('/match-details-live', { state: { matchId: match.id } })}>
+                <div key={match.id} className="min-w-[85vw] sm:min-w-[400px] md:min-w-0 snap-center shrink-0 md:snap-align-none cursor-pointer" onClick={() => navigate('/match-details-live', { state: { matchId: match.id } })}>
                   <div className="bg-slate-900 rounded-3xl p-4 text-white shadow-xl relative overflow-hidden h-full flex flex-col justify-between hover:scale-[1.02] transition-transform duration-200">
                     {/* Background decorations */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -tranne-y-1/2 translate-x-1/2"></div>
