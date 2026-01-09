@@ -99,17 +99,7 @@ const MatchDetailsScreen = () => {
 
     if (!match) return null;
 
-    const redCardsA = events.filter(e => e.player?.name && (match.home_team_id && e.player_id && true) && e.event_type === 'red_card').length; // Logic simplified, strictly we check team_id in events if available or infer
-    // Actually typically events have team_id. Let's check if we queried it or can infer.
-    // The previous Live screen calculates cards based on team_id in event.
-    // Let's assume we can fetch team_id in events or infer from context.
-    // Ideally we should select team_id in the query above.
-
-    // Correction: Let's assume standard event fetching includes team_id or we rely on the component display logic.
-    // For the UI cards summary:
-    // We'll trust the events list has what we need or skip the summary dots if too complex to infer without team_id.
-    // But wait, the previous code fetched `*`. So team_id matches match_events schema.
-
+    // Logic for card counts if needed for display, but currently computed in render or helper
     const countCards = (teamId: string, type: 'yellow_card' | 'red_card') => {
         // We need to check if event has team_id.
         // If not explicitly fetched as prop, `*` includes it.
