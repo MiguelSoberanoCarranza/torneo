@@ -232,6 +232,12 @@ const CalendarScreen: React.FC = () => {
         return;
       }
 
+      if (editForm.home_team_id === editForm.away_team_id) {
+        showToast("No puedes seleccionar el mismo equipo", "error");
+        setUpdating(false);
+        return;
+      }
+
       // Construct ISO string
       const dateTimeString = `${editForm.date}T${editForm.time}:00`;
       const newDate = new Date(dateTimeString);
