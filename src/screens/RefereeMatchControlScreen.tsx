@@ -594,21 +594,21 @@ const RefereeMatchControlScreen: React.FC = () => {
             </button>
             <button
               onClick={() => {
-                if (match.status === 'break') {
+                if (match.status === 'break' && match.current_period === 1) {
                   startSecondHalf();
                 } else {
                   toggleTimer();
                 }
               }}
               className={`flex-[2] h-12 flex items-center justify-center gap-2 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${match.status === 'live' && isRunning ? 'bg-amber-500 hover:bg-amber-600' :
-                match.status === 'break' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                (match.status === 'break' && match.current_period === 1) ? 'bg-emerald-600 hover:bg-emerald-700' :
                   'bg-primary hover:bg-primary-dark'
                 }`}
             >
               <span className="material-symbols-outlined fill-1">{match.status === 'live' && isRunning ? 'pause' : 'play_arrow'}</span>
               <span>
                 {match.status === 'scheduled' ? 'Iniciar Partido' :
-                  match.status === 'break' ? 'Iniciar 2do Tiempo' :
+                  (match.status === 'break' && match.current_period === 1) ? 'Iniciar 2do Tiempo' :
                     isRunning ? 'Pausar' : 'Reanudar'}
               </span>
             </button>

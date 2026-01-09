@@ -23,6 +23,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import AddPlayerScreen from './screens/AddPlayerScreen';
 import AddRefereeScreen from './screens/AddRefereeScreen';
 import CreateMatchScreen from './screens/CreateMatchScreen';
+import UserManagementScreen from './screens/UserManagementScreen';
 const router = createBrowserRouter([
   {
     path: '/',
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
               { path: '/add-player', element: <AddPlayerScreen /> },
               { path: '/add-referee', element: <AddRefereeScreen /> },
               { path: '/create-match', element: <CreateMatchScreen /> },
+              { path: '/user-management', element: <UserManagementScreen /> },
             ]
           }
         ]

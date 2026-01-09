@@ -37,7 +37,7 @@ const BottomNav: React.FC = () => {
     { name: 'Calendario', icon: 'calendar_month', path: '/calendar' },
   ];
 
-  if (role === 'admin') {
+  if (role === 'admin' || role === 'superadmin') {
     displayItems.push({ name: 'Ligas', icon: 'emoji_events', path: '/my-leagues' });
   } else if (role === 'captain') {
     displayItems.push({ name: 'Mi Equipo', icon: 'groups', path: '/my-team' });

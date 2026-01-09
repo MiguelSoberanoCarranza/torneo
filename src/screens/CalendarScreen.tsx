@@ -21,7 +21,8 @@ const CalendarScreen: React.FC = () => {
   const { showToast } = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<string | null>(null); // Added role state
+  const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null); // Added user state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'next_round'>('all');
@@ -38,9 +39,10 @@ const CalendarScreen: React.FC = () => {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         setRole(profile?.role || 'user');
       }
+      setUser(user);
 
       // Fetch Leagues
-      const { data: leaguesData } = await supabase.from('leagues').select('id, name').order('created_at', { ascending: false });
+      const { data: leaguesData } = await supabase.from('leagues').select('id, name, owner_id').order('created_at', { ascending: false });
       if (leaguesData) {
         setLeagues(leaguesData);
         // Default to first league if none selected. Using functional update to avoid overwriting user selection if re-fetching?
@@ -185,10 +187,12 @@ const CalendarScreen: React.FC = () => {
                 <span className="material-symbols-outlined text-[24px]">search</span>
               </button>
             )}
-            {role === 'admin' && (
+
+            {user && leagues.find(l => l.id === selectedLeagueId)?.owner_id === user.id && (
               <button
                 onClick={() => navigate('/fixture-generator')}
                 className="flex items-center justify-center rounded-full w-10 h-10 bg-primary text-white shadow-lg hover:bg-primary-dark transition-colors"
+                title="Generador Automático"
               >
                 <span className="material-symbols-outlined text-[24px]">auto_fix</span>
               </button>

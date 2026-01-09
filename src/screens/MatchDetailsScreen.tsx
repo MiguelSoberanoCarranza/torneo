@@ -140,7 +140,7 @@ const MatchDetailsScreen = () => {
                     </span>
                 </div>
 
-                <div className="flex items-center justify-between max-w-md mx-auto relative z-10">
+                <div className="flex items-center justify-between max-w-md md:max-w-3xl mx-auto relative z-10">
                     {/* Home Team */}
                     <div className="flex flex-col items-center w-1/3">
                         <div className="size-20 bg-white dark:bg-slate-800 rounded-full shadow-lg p-3 mb-3 border-2 border-slate-100 dark:border-slate-700 flex items-center justify-center">
@@ -178,7 +178,7 @@ const MatchDetailsScreen = () => {
             </div>
 
             {/* Timeline Container */}
-            <div className="max-w-md mx-auto p-6 relative">
+            <div className="max-w-md md:max-w-3xl mx-auto p-6 relative">
                 <h3 className="text-center text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Minuto a Minuto</h3>
 
                 {/* Vertical Line */}

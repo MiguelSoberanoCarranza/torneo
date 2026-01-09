@@ -96,6 +96,17 @@ const AdminLoginScreen: React.FC = () => {
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased min-h-screen flex flex-col">
       {/* Hero / Header Section */}
       <div className="relative w-full h-[35vh] flex flex-col justify-end">
+        {/* Guest Access Button */}
+        <div className="absolute top-6 left-6 z-20">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white hover:bg-black/40 transition-all active:scale-95"
+            title="Ir al Inicio"
+          >
+            <span className="material-symbols-outlined">home</span>
+          </button>
+        </div>
+
         {/* Background Image with Gradient Overlay */}
         <div
           className="absolute inset-0 z-0 w-full h-full bg-cover bg-center"
