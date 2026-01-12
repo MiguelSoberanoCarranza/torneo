@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
@@ -22,6 +22,7 @@ interface Match {
 const CalendarScreen: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const isSubmittingRef = useRef(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
@@ -46,6 +47,17 @@ const CalendarScreen: React.FC = () => {
 
   const [isCreating, setIsCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
+
+  /* Manual Entry State */
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [selectedMatchManual, setSelectedMatchManual] = useState<Match | null>(null);
+  const [manualResult, setManualResult] = useState({ home_score: '', away_score: '', finished: true });
+  const [manualPlayersHome, setManualPlayersHome] = useState<any[]>([]);
+  const [manualPlayersAway, setManualPlayersAway] = useState<any[]>([]);
+  const [homeGoalscorers, setHomeGoalscorers] = useState<string[]>([]);
+  const [awayGoalscorers, setAwayGoalscorers] = useState<string[]>([]);
+  const [homeCards, setHomeCards] = useState<{ name: string, type: 'yellow_card' | 'red_card' }[]>([]);
+  const [awayCards, setAwayCards] = useState<{ name: string, type: 'yellow_card' | 'red_card' }[]>([]);
 
   useEffect(() => {
     const fetchRoleAndMatches = async () => {
@@ -137,7 +149,6 @@ const CalendarScreen: React.FC = () => {
       setLoading(false);
     };
 
-    fetchRoleAndMatches();
     fetchRoleAndMatches();
   }, [showToast]);
 
@@ -254,6 +265,10 @@ const CalendarScreen: React.FC = () => {
       showToast("Error: No hay liga seleccionada", "error");
       return;
     }
+
+    // Prevent double execution
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setUpdating(true);
 
     try {
@@ -261,110 +276,218 @@ const CalendarScreen: React.FC = () => {
       if (!editForm.home_team_id || !editForm.away_team_id) {
         showToast("Selecciona ambos equipos", "error");
         setUpdating(false);
+        isSubmittingRef.current = false;
         return;
       }
 
       if (editForm.home_team_id === editForm.away_team_id) {
         showToast("No puedes seleccionar el mismo equipo", "error");
         setUpdating(false);
+        isSubmittingRef.current = false;
         return;
       }
 
-      // Conflict Validation: Check if teams are already playing in this round
-      const isHomePlaying = matches.some(m =>
-        m.round_number === editForm.round &&
-        m.id !== editingMatch?.id &&
-        (m.home_team_id === editForm.home_team_id || m.away_team_id === editForm.home_team_id)
-      );
-
-      const isAwayPlaying = matches.some(m =>
-        m.round_number === editForm.round &&
-        m.id !== editingMatch?.id &&
-        (m.home_team_id === editForm.away_team_id || m.away_team_id === editForm.away_team_id)
-      );
-
-      if (isHomePlaying || isAwayPlaying) {
-        showToast("Uno de los equipos ya juega en esta jornada", "error");
-        setUpdating(false);
-        return;
-      }
+      // Conflict Validation Removed: Teams CAN play multiple times in a round (Jornada Doble)
 
       // Construct ISO string
       const dateTimeString = `${editForm.date}T${editForm.time}:00`;
-      const newDate = new Date(dateTimeString);
+
+      const homeTeam = teams.find(t => t.id === editForm.home_team_id);
+      const awayTeam = teams.find(t => t.id === editForm.away_team_id);
+
+      const matchData = {
+        league_id: selectedLeagueId,
+        home_team_id: editForm.home_team_id,
+        away_team_id: editForm.away_team_id,
+        start_time: dateTimeString,
+        location: editForm.location,
+        round_number: editForm.round,
+        status: isCreating ? 'scheduled' : undefined // Only set scheduled on create
+      };
 
       if (isCreating) {
-        // INSERT Logic
-        const { data, error } = await supabase
-          .from('matches')
-          .insert([{
-            league_id: selectedLeagueId,
-            home_team_id: editForm.home_team_id,
-            away_team_id: editForm.away_team_id,
-            start_time: newDate.toISOString(),
-            status: 'scheduled',
-            round_number: editForm.round,
-            location: editForm.location
-          }])
-          .select()
-          .single();
-
+        const { data, error } = await supabase.from('matches').insert([matchData]).select().single();
         if (error) throw error;
 
-        showToast('Partido creado', 'success');
+        showToast("Partido creado exitosamente", "success");
         setIsCreating(false);
 
-        const homeTeam = teams.find(t => t.id === editForm.home_team_id);
-        const awayTeam = teams.find(t => t.id === editForm.away_team_id);
-
+        // Optimistic add
         const newMatch: Match = {
           ...data,
           home_team: homeTeam || { name: 'Local' },
           away_team: awayTeam || { name: 'Visitante' }
         };
-
         setMatches(prev => [...prev, newMatch].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
 
       } else if (editingMatch) {
-        // UPDATE Logic
+        // Update Logic
         const { error } = await supabase
           .from('matches')
-          .update({
-            start_time: newDate.toISOString(),
-            round_number: editForm.round,
-            home_team_id: editForm.home_team_id,
-            away_team_id: editForm.away_team_id,
-            location: editForm.location
-          })
+          .update(matchData)
           .eq('id', editingMatch.id);
 
         if (error) throw error;
-
-        showToast('Partido actualizado', 'success');
-        setEditingMatch(null);
-
-        // Optimistic update
-        const newHomeTeam = teams.find(t => t.id === editForm.home_team_id);
-        const newAwayTeam = teams.find(t => t.id === editForm.away_team_id);
+        showToast("Partido actualizado", "success");
 
         setMatches(prev => prev.map(m => m.id === editingMatch.id ? {
           ...m,
-          start_time: newDate.toISOString(),
-          round_number: editForm.round,
-          home_team_id: editForm.home_team_id,
-          away_team_id: editForm.away_team_id,
-          location: editForm.location,
-          home_team: newHomeTeam ? { name: newHomeTeam.name, shield_url: m.home_team.shield_url } : m.home_team,
-          away_team: newAwayTeam ? { name: newAwayTeam.name, shield_url: m.away_team.shield_url } : m.away_team
+          ...matchData,
+          status: matchData.status || m.status, // Ensure status is preserved
+          start_time: dateTimeString, // Ensure string format
+          home_team: homeTeam ? { ...m.home_team, name: homeTeam.name } : m.home_team,
+          away_team: awayTeam ? { ...m.away_team, name: awayTeam.name } : m.away_team
         } : m));
+
+        setEditingMatch(null);
       }
+
+      // Optionally re-fetch to be safe
+      // fetchMatches(); 
 
     } catch (error: any) {
       console.error('Error saving match:', error);
-      showToast('Error al guardar', 'error');
+      showToast('Error al guardar: ' + error.message, 'error');
     } finally {
       setUpdating(false);
+      isSubmittingRef.current = false;
     }
+  };
+
+  const openManualEntry = async (match: Match) => {
+    setSelectedMatchManual(match);
+    setManualResult({
+      home_score: match.home_score?.toString() || '',
+      away_score: match.away_score?.toString() || '',
+      finished: match.status === 'finished'
+    });
+    setHomeGoalscorers(match.home_score ? Array(match.home_score).fill('') : []);
+    setAwayGoalscorers(match.away_score ? Array(match.away_score).fill('') : []);
+    setHomeCards([]);
+    setAwayCards([]);
+
+    // Fetch players for autocomplete
+    const { data: players } = await supabase
+      .from('players')
+      .select('id, name, team_id, number')
+      .in('team_id', [match.home_team_id, match.away_team_id]);
+
+    if (players) {
+      setManualPlayersHome(players.filter(p => p.team_id === match.home_team_id));
+      setManualPlayersAway(players.filter(p => p.team_id === match.away_team_id));
+    } else {
+      setManualPlayersHome([]);
+      setManualPlayersAway([]);
+    }
+
+    setShowManualModal(true);
+  };
+
+  const saveManualResult = async () => {
+    if (!selectedMatchManual || isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
+    setUpdating(true);
+    const updates: any = {
+      home_score: parseInt(manualResult.home_score) || 0,
+      away_score: parseInt(manualResult.away_score) || 0
+    };
+
+    if (manualResult.finished) {
+      updates.status = 'finished';
+    }
+
+    // 1. Update Match
+    const { error } = await supabase
+      .from('matches')
+      .update(updates)
+      .eq('id', selectedMatchManual.id);
+
+    if (error) {
+      showToast('Error al guardar resultado', 'error');
+      setUpdating(false);
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    // 2. Process Goalscorers
+    try {
+      // Clear existing events for this match to prevent partial duplicates on re-save
+      await supabase.from('match_events')
+        .delete()
+        .eq('match_id', selectedMatchManual.id)
+        .in('event_type', ['goal', 'yellow_card', 'red_card']);
+
+      // Local cache to prevent duplicate creation during this transaction
+      const currentHomePlayers = [...manualPlayersHome];
+      const currentAwayPlayers = [...manualPlayersAway];
+
+      const processPlayerEvent = async (name: string, teamId: string, eventType: string, isHome: boolean) => {
+        if (!name || name.trim() === '') return;
+
+        const playersList = isHome ? currentHomePlayers : currentAwayPlayers;
+
+        // Check if exists in our local (potentially updated) cache
+        // Normalize comparison
+        const searchName = name.trim().toLowerCase();
+        let existing = playersList.find(p => p.name.trim().toLowerCase() === searchName);
+
+        let playerId = null;
+
+        if (existing) {
+          playerId = existing.id;
+        } else {
+          // Create New Player
+          const { data: newPlayer, error: createError } = await supabase
+            .from('players')
+            .insert({ name: name.trim(), team_id: teamId, number: '0', position: 'Jugador' })
+            .select()
+            .single();
+
+          if (createError) throw createError;
+          playerId = newPlayer.id;
+
+          // Add to local cache immediately so next iteration finds it
+          const playerToAdd = { ...newPlayer }; // Ensure we have a clean object
+          if (isHome) {
+            currentHomePlayers.push(playerToAdd);
+          } else {
+            currentAwayPlayers.push(playerToAdd);
+          }
+        }
+
+        // Insert Event
+        if (playerId) {
+          await supabase.from('match_events').insert({
+            match_id: selectedMatchManual.id,
+            player_id: playerId,
+            team_id: teamId,
+            event_type: eventType,
+            minute: 90
+          });
+        }
+      };
+
+      // Goals
+      for (const name of homeGoalscorers) await processPlayerEvent(name, selectedMatchManual.home_team_id, 'goal', true);
+      for (const name of awayGoalscorers) await processPlayerEvent(name, selectedMatchManual.away_team_id, 'goal', false);
+
+      // Cards
+      for (const item of homeCards) await processPlayerEvent(item.name, selectedMatchManual.home_team_id, item.type, true);
+      for (const item of awayCards) await processPlayerEvent(item.name, selectedMatchManual.away_team_id, item.type, false);
+
+      setMatches(prev => prev.map(m => m.id === selectedMatchManual.id ? { ...m, ...updates } : m));
+      setUpdating(false);
+      isSubmittingRef.current = false;
+      setShowManualModal(false);
+      showToast('Resultado guardado', 'success');
+
+    } catch (e) {
+      console.error(e);
+      showToast('Error al guardar datos', 'error');
+    }
+
+    setUpdating(false);
   };
 
   const handleDeleteMatch = async () => {
@@ -418,7 +541,7 @@ const CalendarScreen: React.FC = () => {
               </button>
             </div>
           ) : (
-          <div className="flex-1 flex items-center min-w-0">
+            <div className="flex-1 flex items-center min-w-0">
               {leagues.length > 0 ? (
                 <div className="relative group min-w-0">
                   <select
@@ -427,7 +550,7 @@ const CalendarScreen: React.FC = () => {
                     className="bg-transparent text-xl md:text-2xl font-bold text-slate-900 dark:text-white border-none outline-none cursor-pointer appearance-none pr-8 py-1 z-10 truncate max-w-full"
                   >
                     {leagues.map(l => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
+                      <option key={l.id} value={l.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{l.name}</option>
                     ))}
                   </select>
                   <span className="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 text-slate-900 dark:text-white pointer-events-none">expand_more</span>
@@ -564,31 +687,49 @@ const CalendarScreen: React.FC = () => {
                           </div>
 
                           {/* Score / VS */}
-                          <div className="flex flex-col items-center px-4">
+                          {/* Score / VS / Actions */}
+                          <div className="flex flex-col items-center px-2">
                             {match.status === 'finished' || match.status === 'live' || match.status === 'break' ? (
                               <div className="text-2xl font-black tracking-tight font-mono">
                                 {match.home_score} - {match.away_score}
                               </div>
                             ) : (
                               <div className="flex flex-col items-center gap-2">
-                                <div className="text-lg font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
-                                  VS
-                                </div>
-                                {match.status === 'scheduled' && (role === 'admin' || role === 'referee' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate('/referee-match-control', { state: { matchId: match.id } });
-                                    }}
-                                    className="bg-primary hover:bg-primary-dark text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded-full shadow-lg shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">play_arrow</span>
-                                    Iniciar
-                                  </button>
+                                {/* Show Actions if Authorized */}
+                                {(role === 'admin' || role === 'referee' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && match.status === 'scheduled' ? (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate('/referee-match-control', { state: { matchId: match.id } });
+                                      }}
+                                      className="bg-primary hover:bg-primary-dark text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg shadow-lg shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-1"
+                                    >
+                                      <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                      Iniciar
+                                    </button>
+
+                                    {(role === 'admin' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openManualEntry(match);
+                                        }}
+                                        className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 p-2 rounded-lg transition-colors"
+                                        title="Cargar Resultado Manual"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-lg font-bold text-slate-300 dark:text-slate-600">
+                                    VS
+                                  </div>
                                 )}
                               </div>
                             )}
-                            <span className={`text-[10px] uppercase font-bold mt-1 px-2 py-0.5 rounded-full ${match.status === 'live' ? 'bg-red-500 text-white animate-pulse' : match.status === 'break' ? 'bg-orange-500 text-white' : 'text-slate-400'}`}>
+                            <span className={`text-[10px] uppercase font-bold mt-2 px-2 py-0.5 rounded-full ${match.status === 'live' ? 'bg-red-500 text-white animate-pulse' : match.status === 'break' ? 'bg-orange-500 text-white' : 'text-slate-400'}`}>
                               {match.status === 'scheduled' ? 'Programado' : match.status === 'live' ? 'En Vivo' : match.status === 'break' ? 'Entretiempo' : 'Finalizado'}
                             </span>
                           </div>
@@ -610,7 +751,234 @@ const CalendarScreen: React.FC = () => {
           )}
         </div>
 
-        {/* Edit Match Modal */}
+        {/* Manual Entry Modal */}
+        {showManualModal && selectedMatchManual && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-card-dark rounded-xl w-full max-w-md md:max-w-3xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <h3 className="font-bold text-lg text-center text-slate-900 dark:text-white">Resultado Manual</h3>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="p-4 overflow-y-auto flex-1">
+                <div className="flex items-center justify-between mb-6 gap-4">
+                  <div className="flex flex-col items-center">
+                    <label className="text-xs font-bold mb-1 truncate max-w-[100px] text-slate-900 dark:text-white">{selectedMatchManual.home_team?.name}</label>
+                    <input
+                      type="number"
+                      className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white"
+                      value={manualResult.home_score}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setManualResult({ ...manualResult, home_score: val });
+                        const count = parseInt(val) || 0;
+                        setHomeGoalscorers(prev => {
+                          const newArr = [...prev];
+                          if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
+                          return newArr.slice(0, count);
+                        });
+                      }}
+                    />
+                  </div>
+                  <span className="text-2xl font-bold text-slate-300">-</span>
+                  <div className="flex flex-col items-center">
+                    <label className="text-xs font-bold mb-1 truncate max-w-[100px] text-slate-900 dark:text-white">{selectedMatchManual.away_team?.name}</label>
+                    <input
+                      type="number"
+                      className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white"
+                      value={manualResult.away_score}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setManualResult({ ...manualResult, away_score: val });
+                        const count = parseInt(val) || 0;
+                        setAwayGoalscorers(prev => {
+                          const newArr = [...prev];
+                          if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
+                          return newArr.slice(0, count);
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Goalscorers Inputs */}
+                {(homeGoalscorers.length > 0 || awayGoalscorers.length > 0) && (
+                  <div className="flex flex-col md:flex-row gap-4 mb-6 transition-all">
+                    {/* Home Scorers */}
+                    <div className="flex-1 flex flex-col gap-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleadores ({selectedMatchManual.home_team?.name?.substring(0, 10)})</span>
+                      {homeGoalscorers.map((scorer, idx) => (
+                        <div key={`h-${idx}`}>
+                          <input
+                            list="home-players"
+                            placeholder={`Gol ${idx + 1}`}
+                            className="w-full text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                            value={scorer}
+                            onChange={(e) => {
+                              const newArr = [...homeGoalscorers];
+                              newArr[idx] = e.target.value;
+                              setHomeGoalscorers(newArr);
+                            }}
+                          />
+                          <datalist id="home-players">
+                            {manualPlayersHome.map(p => <option key={p.id} value={p.name} />)}
+                          </datalist>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Away Scorers */}
+                    <div className="flex-1 flex flex-col gap-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleadores ({selectedMatchManual.away_team?.name?.substring(0, 10)})</span>
+                      {awayGoalscorers.map((scorer, idx) => (
+                        <div key={`a-${idx}`}>
+                          <input
+                            list="away-players"
+                            placeholder={`Gol ${idx + 1}`}
+                            className="w-full text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                            value={scorer}
+                            onChange={(e) => {
+                              const newArr = [...awayGoalscorers];
+                              newArr[idx] = e.target.value;
+                              setAwayGoalscorers(newArr);
+                            }}
+                          />
+                          <datalist id="away-players">
+                            {manualPlayersAway.map(p => <option key={p.id} value={p.name} />)}
+                          </datalist>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cards Section */}
+                <div className="flex flex-col md:flex-row gap-4 mb-8">
+                  {/* Home Cards */}
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarjetas ({selectedMatchManual.home_team?.name?.substring(0, 10)})</span>
+                      <button
+                        onClick={() => setHomeCards([...homeCards, { name: '', type: 'yellow_card' }])}
+                        className="p-1 px-2 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">add</span>
+                      </button>
+                    </div>
+                    {homeCards.map((card, idx) => (
+                      <div key={`hc-${idx}`} className="flex gap-2 items-center">
+                        <input
+                          list="home-players"
+                          placeholder="Jugador"
+                          className="flex-1 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 min-w-0 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                          value={card.name}
+                          onChange={(e) => {
+                            const newArr = [...homeCards];
+                            newArr[idx].name = e.target.value;
+                            setHomeCards(newArr);
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            const newArr = [...homeCards];
+                            newArr[idx].type = newArr[idx].type === 'yellow_card' ? 'red_card' : 'yellow_card';
+                            setHomeCards(newArr);
+                          }}
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-100 border border-yellow-300' : 'bg-red-100 border border-red-300'}`}
+                        >
+                          <div className={`w-4 h-5 rounded-sm shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-400' : 'bg-red-500'}`}></div>
+                        </button>
+                        <button
+                          onClick={() => setHomeCards(homeCards.filter((_, i) => i !== idx))}
+                          className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Away Cards */}
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarjetas ({selectedMatchManual.away_team?.name?.substring(0, 10)})</span>
+                      <button
+                        onClick={() => setAwayCards([...awayCards, { name: '', type: 'yellow_card' }])}
+                        className="p-1 px-2 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">add</span>
+                      </button>
+                    </div>
+                    {awayCards.map((card, idx) => (
+                      <div key={`ac-${idx}`} className="flex gap-2 items-center">
+                        <input
+                          list="away-players"
+                          placeholder="Jugador"
+                          className="flex-1 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 min-w-0 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                          value={card.name}
+                          onChange={(e) => {
+                            const newArr = [...awayCards];
+                            newArr[idx].name = e.target.value;
+                            setAwayCards(newArr);
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            const newArr = [...awayCards];
+                            newArr[idx].type = newArr[idx].type === 'yellow_card' ? 'red_card' : 'yellow_card';
+                            setAwayCards(newArr);
+                          }}
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-100 border border-yellow-300' : 'bg-red-100 border border-red-300'}`}
+                        >
+                          <div className={`w-4 h-5 rounded-sm shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-400' : 'bg-red-500'}`}></div>
+                        </button>
+                        <button
+                          onClick={() => setAwayCards(awayCards.filter((_, i) => i !== idx))}
+                          className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mb-2 justify-center">
+                  <input
+                    type="checkbox"
+                    id="markFinished"
+                    className="w-5 h-5 accent-primary"
+                    checked={manualResult.finished}
+                    onChange={(e) => setManualResult({ ...manualResult, finished: e.target.checked })}
+                  />
+                  <label htmlFor="markFinished" className="font-medium text-slate-900 dark:text-white">Marcar como Finalizado</label>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowManualModal(false)}
+                    className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={saveManualResult}
+                    disabled={updating}
+                    className="flex-1 py-3 rounded-xl font-bold text-white bg-primary flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                  >
+                    {updating && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Match Fab */}
         {(editingMatch || isCreating) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white dark:bg-surface-dark rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-200 dark:border-slate-800">

@@ -12,11 +12,22 @@ interface Match {
   away_team: { name: string; shield_url?: string };
 }
 
+interface ManualResultFormatted {
+  home_score: string;
+  away_score: string;
+  finished: boolean;
+}
+
 const MatchManagementScreen: React.FC = () => {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, scheduled, live, finished
+
+  // Manual Entry State
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [manualResult, setManualResult] = useState<ManualResultFormatted>({ home_score: '', away_score: '', finished: true });
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -60,6 +71,42 @@ const MatchManagementScreen: React.FC = () => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const openManualEntry = (match: Match) => {
+    setSelectedMatch(match);
+    setManualResult({
+      home_score: match.home_score?.toString() || '',
+      away_score: match.away_score?.toString() || '',
+      finished: match.status === 'finished'
+    });
+    setShowManualModal(true);
+  };
+
+  const saveManualResult = async () => {
+    if (!selectedMatch) return;
+
+    const updates: any = {
+      home_score: parseInt(manualResult.home_score) || 0,
+      away_score: parseInt(manualResult.away_score) || 0
+    };
+
+    if (manualResult.finished) {
+      updates.status = 'finished';
+    }
+
+    const { error } = await supabase
+      .from('matches')
+      .update(updates)
+      .eq('id', selectedMatch.id);
+
+    if (error) {
+      alert('Error al guardar resultado');
+    } else {
+      // Update local list
+      setMatches(matches.map(m => m.id === selectedMatch.id ? { ...m, ...updates } : m));
+      setShowManualModal(false);
+    }
   };
 
   return (
@@ -135,15 +182,80 @@ const MatchManagementScreen: React.FC = () => {
                   </div>
                   <span className="font-bold">{match.away_score}</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 flex justify-between">
+                <div className="mt-2 text-xs text-gray-500 flex justify-between items-center">
                   <span>{formatDate(match.start_time)}</span>
-                  <span className="capitalize">{match.status}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="capitalize">{match.status}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openManualEntry(match); }}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded text-slate-400"
+                      title="Cargar Resultado Manual"
+                    >
+                      <span className="material-symbols-outlined text-lg">edit_note</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))
         )}
       </main>
+
+      {/* Manual Entry Modal */}
+      {showManualModal && selectedMatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-card-dark rounded-xl w-full max-w-sm p-4 shadow-xl">
+            <h3 className="font-bold text-lg mb-4 text-center">Resultado Manual</h3>
+            <div className="flex items-center justify-between mb-6 gap-4">
+              <div className="flex flex-col items-center">
+                <label className="text-xs font-bold mb-1 truncate max-w-[100px]">{selectedMatch.home_team?.name}</label>
+                <input
+                  type="number"
+                  className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl"
+                  value={manualResult.home_score}
+                  onChange={(e) => setManualResult({ ...manualResult, home_score: e.target.value })}
+                />
+              </div>
+              <span className="text-2xl font-bold text-slate-300">-</span>
+              <div className="flex flex-col items-center">
+                <label className="text-xs font-bold mb-1 truncate max-w-[100px]">{selectedMatch.away_team?.name}</label>
+                <input
+                  type="number"
+                  className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl"
+                  value={manualResult.away_score}
+                  onChange={(e) => setManualResult({ ...manualResult, away_score: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mb-6 justify-center">
+              <input
+                type="checkbox"
+                id="markFinished"
+                className="w-5 h-5 accent-primary"
+                checked={manualResult.finished}
+                onChange={(e) => setManualResult({ ...manualResult, finished: e.target.checked })}
+              />
+              <label htmlFor="markFinished" className="font-medium">Marcar como Finalizado</label>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowManualModal(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 dark:bg-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveManualResult}
+                className="flex-1 py-3 rounded-xl font-bold text-white bg-primary"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={() => navigate('/create-match')}

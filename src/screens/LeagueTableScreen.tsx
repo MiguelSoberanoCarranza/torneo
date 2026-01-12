@@ -273,7 +273,7 @@ const LeagueTableScreen: React.FC = () => {
               onChange={(e) => setSelectedLeagueId(e.target.value)}
             >
               {leagues.map(l => (
-                <option key={l.id} value={l.id}>{l.name}</option>
+                <option key={l.id} value={l.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{l.name}</option>
               ))}
             </select>
           </div>

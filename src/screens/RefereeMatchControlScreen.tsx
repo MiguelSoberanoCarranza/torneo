@@ -37,14 +37,37 @@ const RefereeMatchControlScreen: React.FC = () => {
   const [subStep, setSubStep] = useState<'out' | 'in' | null>(null);
   const [playerOutId, setPlayerOutId] = useState<string | null>(null);
 
+  /* User Role State */
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
     if (!matchId) {
       showToast('Partido no identificado', 'error');
       navigate(-1);
       return;
     }
+
+    checkUserRole();
     fetchMatchData();
   }, [matchId]);
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      // Check if Admin or Referee
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      if (data && (data.role === 'admin' || data.role === 'referee')) {
+        setIsAdmin(true);
+        return;
+      }
+      // Check if League Owner
+      /* Note: We don't have league owner_id accessible easily here without match data
+         but isAdmin is state. We can update it after fetchMatchData too if needed.
+         For now, let's trust profile role 'referee' is enough for basic control.
+         The previous implementation of isAdmin was strictly strictly 'admin'.
+      */
+    }
+  };
 
   useEffect(() => {
     let interval: any;
@@ -52,11 +75,11 @@ const RefereeMatchControlScreen: React.FC = () => {
       interval = setInterval(() => {
         setTimer((prev) => prev + 1);
       }, 1000);
-    } else if (!isRunning && timer !== 0) {
+    } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isRunning, timer]);
+  }, [isRunning]);
 
   /* Combined Fetch */
   const fetchMatchData = async () => {
@@ -70,13 +93,18 @@ const RefereeMatchControlScreen: React.FC = () => {
             home_team:teams!matches_home_team_id_fkey(name, shield_url),
             away_team:teams!matches_away_team_id_fkey(name, shield_url),
 
-            league:leagues(name, match_duration, format)
+            league:leagues(name, match_duration, format, owner_id)
         `)
         .eq('id', matchId)
         .single();
 
       if (matchError) throw matchError;
 
+      // Check Owner Permissions
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && matchData.league?.owner_id === user.id) {
+        setIsAdmin(true);
+      }
 
       const formattedMatch = {
         ...matchData,
@@ -186,7 +214,7 @@ const RefereeMatchControlScreen: React.FC = () => {
     const updateData: any = { status: newStatus };
 
     // If finishing or pausing, save the Accumulated Timer and Clear Start Time
-    if (newStatus === 'finished' || newStatus === 'break' || newStatus === 'scheduled') {
+    if (newStatus === 'finished' || newStatus === 'break' || newStatus === 'scheduled' || newStatus === 'paused') {
       updateData.elapsed_seconds = timer;
       updateData.last_start_time = null;
       setIsRunning(false);
@@ -249,6 +277,53 @@ const RefereeMatchControlScreen: React.FC = () => {
     }
   };
 
+  const endFirstHalf = async () => {
+    // End 1st Half -> Set status to break AND move to period 2 (Halftime state)
+    const { error } = await supabase
+      .from('matches')
+      .update({
+        status: 'break',
+        elapsed_seconds: timer,
+        current_period: 2 // Halftime = Period 2 Pending
+      })
+      .eq('id', matchId);
+
+    if (error) {
+      showToast('Error al finalizar 1er tiempo', 'error');
+    } else {
+      setMatch({ ...match, status: 'break', current_period: 2 });
+      setIsRunning(false);
+      showToast('Fin del 1er Tiempo', 'success');
+      setConfirmAction(null);
+    }
+  };
+
+  const startSecondHalf = async () => {
+    const totalDuration = match.league?.match_duration || 90;
+    const startSeconds = (totalDuration / 2) * 60;
+    const newTimer = timer < startSeconds ? startSeconds : timer;
+
+    const { error } = await supabase
+      .from('matches')
+      .update({
+        status: 'live',
+        current_period: 2,
+        elapsed_seconds: newTimer
+      })
+      .eq('id', matchId);
+
+    if (error) {
+      showToast('Error al iniciar 2do tiempo', 'error');
+    } else {
+      setMatch({ ...match, status: 'live', current_period: 2 });
+      setTimer(newTimer);
+      setIsRunning(true);
+      showToast('2do Tiempo iniciado', 'success');
+    }
+  };
+
+  // ... (toggleTimer below)
+
   const toggleTimer = async () => {
     // Validation: Block start if lineups missing
     if (match.status === 'scheduled') {
@@ -261,7 +336,7 @@ const RefereeMatchControlScreen: React.FC = () => {
     } else {
       // Toggle Running State
       if (isRunning) {
-        // PAUSE: Save current timer, clear start time
+        // PAUSE: Just set break
         const { error } = await supabase
           .from('matches')
           .update({
@@ -271,12 +346,15 @@ const RefereeMatchControlScreen: React.FC = () => {
           })
           .eq('id', matchId);
 
-        if (!error) {
+        if (error) {
+          showToast('Error al pausar', 'error');
+          console.error(error);
+        } else {
           setIsRunning(false);
           setMatch({ ...match, status: 'break' });
         }
       } else {
-        // RESUME: Set start time, keep elapsed_seconds as base
+        // RESUME
         const { error } = await supabase
           .from('matches')
           .update({
@@ -285,13 +363,53 @@ const RefereeMatchControlScreen: React.FC = () => {
           })
           .eq('id', matchId);
 
-        if (!error) {
+        if (error) {
+          showToast('Error al reanudar', 'error');
+        } else {
           setIsRunning(true);
           setMatch({ ...match, status: 'live' });
         }
       }
     }
   };
+
+  // ... (render helpers)
+
+  // Button Logic Helper
+  const getMainButtonConfig = () => {
+    if (match.status === 'scheduled') return { label: 'Iniciar Partido', action: toggleTimer, color: 'bg-primary hover:bg-primary-dark', icon: 'play_arrow' };
+
+    // Live: Always Pause
+    if (match.status === 'live' && isRunning) return { label: 'Pausar', action: toggleTimer, color: 'bg-amber-500 hover:bg-amber-600', icon: 'pause' };
+
+    // Break/Paused Logic
+    if (match.status === 'break') {
+      // Period 1 Break = Pause in 1T -> Resume
+      if (match.current_period === 1) return { label: 'Reanudar (1T)', action: toggleTimer, color: 'bg-blue-600 hover:bg-blue-700', icon: 'play_arrow' };
+
+      // Period 2 Break = Halftime OR Pause in 2T
+      if (match.current_period === 2) {
+        // Determine if Halftime (Start of 2T) or Pause (Mid 2T)
+        const halfTimeSeconds = ((match.league?.match_duration || 90) / 2) * 60;
+        // Allow a buffer (e.g. 60s) or strict check? Strict check timer < startSeconds is safer if we reset timer?
+        // But timer is cumulative. 
+        // If timer is roughly equal to halfTimeSeconds, it's Halftime.
+        // If timer >> halfTimeSeconds, it's a Pause in 2T.
+        if (timer > halfTimeSeconds + 60) {
+          return { label: 'Reanudar (2T)', action: startSecondHalf, color: 'bg-blue-600 hover:bg-blue-700', icon: 'play_arrow' };
+        }
+        return { label: 'Iniciar 2do Tiempo', action: startSecondHalf, color: 'bg-emerald-600 hover:bg-emerald-700', icon: 'play_arrow' };
+      }
+    }
+
+    // Fallback?
+    return { label: 'Reanudar', action: toggleTimer, color: 'bg-primary hover:bg-primary-dark', icon: 'play_arrow' };
+  };
+
+
+
+  // ... (Render inside the button)
+  /* We need to replace the button JSX block */
 
   /* Event Handlers */
   const onTriggerEvent = (type: string, teamId: string, teamName: string) => {
@@ -422,52 +540,7 @@ const RefereeMatchControlScreen: React.FC = () => {
     setPlayerOutId(null);
   };
 
-  const endFirstHalf = async () => {
-    const { error } = await supabase
-      .from('matches')
-      .update({ status: 'break', elapsed_seconds: timer })
-      .eq('id', matchId);
-
-
-
-    if (error) {
-      showToast('Error al finalizar 1er tiempo', 'error');
-    } else {
-      setMatch({ ...match, status: 'break' });
-      setIsRunning(false);
-      showToast('Fin del 1er Tiempo', 'success');
-      setConfirmAction(null); // Reset confirmation state
-    }
-  };
-
-  const startSecondHalf = async () => {
-    // Determine start time for 2nd half
-    // User logic: match_duration is TOTAL time. So 2nd half starts at total / 2.
-    // Default to 90 mins total (45 per half) if not defined.
-    const totalDuration = match.league?.match_duration || 90;
-    const startSeconds = (totalDuration / 2) * 60;
-
-    // Only update timer if it's less than the expected start time (to prevent rewinding if already started)
-    const newTimer = timer < startSeconds ? startSeconds : timer;
-
-    const { error } = await supabase
-      .from('matches')
-      .update({
-        status: 'live',
-        current_period: 2,
-        elapsed_seconds: newTimer
-      })
-      .eq('id', matchId);
-
-    if (error) {
-      showToast('Error al iniciar 2do tiempo', 'error');
-    } else {
-      setMatch({ ...match, status: 'live', current_period: 2 });
-      setTimer(newTimer);
-      setIsRunning(true);
-      showToast('Inicio del 2do Tiempo', 'success');
-    }
-  };
+  /* Helper Functions */
 
   const formatSeconds = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60);
@@ -475,9 +548,65 @@ const RefereeMatchControlScreen: React.FC = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const restartMatch = async () => {
+    setLoading(true);
+    // 1. Reset match
+    const { error: matchError } = await supabase
+      .from('matches')
+      .update({
+        status: 'scheduled',
+        home_score: 0,
+        away_score: 0,
+        elapsed_seconds: 0,
+        current_period: 1,
+        last_start_time: null,
+        lineups: null
+      })
+      .eq('id', matchId);
+
+    if (matchError) {
+      showToast('Error al reiniciar partido', 'error');
+      setLoading(false);
+      return;
+    }
+
+    // 2. Delete events
+    const { error: eventsError } = await supabase
+      .from('match_events')
+      .delete()
+      .eq('match_id', matchId);
+
+    if (eventsError) {
+      showToast('Error al borrar eventos', 'error');
+    } else {
+      showToast('Partido reiniciado', 'success');
+      // Reset local state
+      setEvents([]);
+      setTimer(0);
+      setIsRunning(false);
+      setMatch((prev: any) => ({
+        ...prev,
+        status: 'scheduled',
+        home_score: 0,
+        away_score: 0,
+        elapsed_seconds: 0,
+        current_period: 1,
+        last_start_time: null,
+        lineups: null
+      }));
+      setSelectedHomeStarters([]);
+      setSelectedAwayStarters([]);
+      setShowLineupModal(true); // Re-trigger lineup selection if needed
+    }
+    setConfirmAction(null);
+    setLoading(false);
+  };
+
   /* Render */
   if (loading) return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-500">Cargando...</div>;
   if (!match) return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-500">Error</div>;
+
+  const btnConfig = getMainButtonConfig();
 
   const currentPlayers = pendingEvent ? (pendingEvent.teamId === match.home_team_id ? homePlayers : awayPlayers) : [];
 
@@ -538,6 +667,27 @@ const RefereeMatchControlScreen: React.FC = () => {
         </div>
       </header>
 
+      {/* Admin/Referee Controls */}
+      {isAdmin && (
+        <div className="px-4 py-2 flex justify-end">
+          <button
+            onClick={() => {
+              if (confirmAction === 'restartMatch') {
+                restartMatch();
+              } else {
+                setConfirmAction('restartMatch');
+                setTimeout(() => setConfirmAction(null), 3000);
+              }
+            }}
+            className={`text-xs px-3 py-1 rounded transition-colors font-bold ${confirmAction === 'restartMatch'
+              ? 'bg-red-600 text-white'
+              : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-red-100 hover:text-red-500'}`}
+          >
+            {confirmAction === 'restartMatch' ? '¿Confirmar Reinicio?' : 'Reiniciar Partido'}
+          </button>
+        </div>
+      )}
+
       {/* Main Container - Responsive Width */}
       <main className="flex-1 flex flex-col p-4 gap-5 max-w-7xl mx-auto w-full pb-20">
 
@@ -594,22 +744,43 @@ const RefereeMatchControlScreen: React.FC = () => {
             </button>
             <button
               onClick={() => {
-                if (match.status === 'break' && match.current_period === 1) {
-                  startSecondHalf();
-                } else {
-                  toggleTimer();
+                // Determine Action based on State
+                if (match.status === 'break') {
+                  // If Period 2 pending (Halftime), start it
+                  if (match.current_period === 2) {
+                    // Check if it's Halftime (timer approx half duration) or Mid-Period Pause (timer > half duration)
+                    // If it's effectively halftime, startSecondHalf logic applies (reset timer to 45).
+                    // If it's a pause, startSecondHalf ALSO applies (keeps timer).
+                    // So action is always startSecondHalf for Period 2 break.
+                    startSecondHalf();
+                    return;
+                  }
                 }
+                toggleTimer();
               }}
               className={`flex-[2] h-12 flex items-center justify-center gap-2 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 ${match.status === 'live' && isRunning ? 'bg-amber-500 hover:bg-amber-600' :
-                (match.status === 'break' && match.current_period === 1) ? 'bg-emerald-600 hover:bg-emerald-700' :
+                (match.status === 'break' && match.current_period === 2 && timer <= ((match.league?.match_duration || 90) / 2 * 60) + 60) ? 'bg-emerald-600 hover:bg-emerald-700' :
                   'bg-primary hover:bg-primary-dark'
                 }`}
             >
-              <span className="material-symbols-outlined fill-1">{match.status === 'live' && isRunning ? 'pause' : 'play_arrow'}</span>
+              <span className="material-symbols-outlined fill-1">
+                {match.status === 'live' && isRunning ? 'pause' : 'play_arrow'}
+              </span>
               <span>
-                {match.status === 'scheduled' ? 'Iniciar Partido' :
-                  (match.status === 'break' && match.current_period === 1) ? 'Iniciar 2do Tiempo' :
-                    isRunning ? 'Pausar' : 'Reanudar'}
+                {(() => {
+                  if (match.status === 'scheduled') return 'Iniciar Partido';
+                  if (match.status === 'live' && isRunning) return 'Pausar';
+                  if (match.status === 'break') {
+                    if (match.current_period === 1) return 'Reanudar'; // Pause in 1T
+                    if (match.current_period === 2) {
+                      // Halftime vs Pause 2T
+                      const halfTimeSecs = ((match.league?.match_duration || 90) / 2) * 60;
+                      if (timer > halfTimeSecs + 60) return 'Reanudar';
+                      return 'Iniciar 2do Tiempo';
+                    }
+                  }
+                  return 'Reanudar';
+                })()}
               </span>
             </button>
           </div>
@@ -710,6 +881,23 @@ const RefereeMatchControlScreen: React.FC = () => {
             </div>
             <div className="p-2 overflow-y-auto flex-1">
               <p className="px-2 text-xs font-bold text-slate-400 uppercase mb-2">{pendingEvent?.teamName}</p>
+
+              {/* General Goal Option */}
+              {pendingEvent?.type === 'goal' && (
+                <button
+                  onClick={() => confirmEvent(null)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left mb-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs bg-emerald-100 text-emerald-600">
+                    <span className="material-symbols-outlined">sports_soccer</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white">Gol General</p>
+                    <p className="text-xs text-slate-500">Sin jugador específico</p>
+                  </div>
+                </button>
+              )}
+
               {currentPlayers.length === 0 ? (
                 <p className="p-4 text-center text-slate-500">No hay jugadores registrados en este equipo.</p>
               ) : (
@@ -839,6 +1027,22 @@ const RefereeMatchControlScreen: React.FC = () => {
                       {/* Normal Events (Goals, Cards) - Show everyone? Or just starters? Usually just starters can get cards/goals if on pitch, but for simplicity show all or just starters? Let's show Starters then Subs separated */}
                       {pendingEvent?.type !== 'substitution' && (
                         <>
+                          {(pendingEvent?.type === 'yellow_card' || pendingEvent?.type === 'red_card') && (
+                            <button
+                              onClick={() => confirmEvent(null)}
+                              className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 mb-4 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <div className="size-10 rounded-full flex items-center justify-center font-bold text-xs bg-slate-200 dark:bg-slate-700 text-slate-500">
+                                CT
+                              </div>
+                              <div className="flex-1 text-left">
+                                <p className="font-bold text-slate-700 dark:text-slate-300">Sin Jugador</p>
+                                <p className="text-xs text-slate-500">Tarjeta General</p>
+                              </div>
+                              <span className="material-symbols-outlined text-slate-400">add</span>
+                            </button>
+                          )}
+
                           <p className="px-2 text-[10px] font-bold text-emerald-500 uppercase mt-2">Titulares</p>
                           {starters.map(renderPlayerButton)}
 

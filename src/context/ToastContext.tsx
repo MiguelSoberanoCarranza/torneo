@@ -10,9 +10,9 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
-    const showToast = (message: string, type: ToastType = 'info') => {
+    const showToast = React.useCallback((message: string, type: ToastType = 'info') => {
         setToast({ message, type });
-    };
+    }, []);
 
     const closeToast = () => {
         setToast(null);

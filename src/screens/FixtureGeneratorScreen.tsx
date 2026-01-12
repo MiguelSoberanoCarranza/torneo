@@ -243,7 +243,7 @@ const FixtureGeneratorScreen: React.FC = () => {
             >
               {leagues.length === 0 && <option>Cargando ligas...</option>}
               {leagues.map(l => (
-                <option key={l.id} value={l.id}>{l.name}</option>
+                <option key={l.id} value={l.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{l.name}</option>
               ))}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary flex items-center">

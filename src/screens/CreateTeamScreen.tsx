@@ -583,14 +583,14 @@ const CreateTeamScreen: React.FC<CreateTeamScreenProps> = ({ initialTeamId, init
                 </div>
                 <div className="flex gap-2">
                   <select
-                    className="flex-[2] form-select h-10 rounded-lg border-gray-300 dark:border-border-dark bg-white dark:bg-surface-dark px-3 text-sm"
+                    className="flex-[2] form-select h-10 rounded-lg border-gray-300 dark:border-border-dark bg-white dark:bg-surface-dark px-3 text-sm text-slate-900 dark:text-white"
                     value={newPlayerPosition}
                     onChange={e => setNewPlayerPosition(e.target.value)}
                   >
-                    <option>Portero</option>
-                    <option>Defensa</option>
-                    <option>Medio</option>
-                    <option>Delantero</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Portero</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Defensa</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Medio</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Delantero</option>
                   </select>
                   <button
                     onClick={handleAddPlayer}
@@ -680,14 +680,14 @@ const CreateTeamScreen: React.FC<CreateTeamScreenProps> = ({ initialTeamId, init
                     onChange={e => setEditNumber(e.target.value)}
                   />
                   <select
-                    className="flex-[2] form-select h-10 rounded-lg border-gray-300 dark:border-border-dark bg-white dark:bg-surface-dark px-3 text-sm"
+                    className="flex-[2] form-select h-10 rounded-lg border-gray-300 dark:border-border-dark bg-white dark:bg-surface-dark px-3 text-sm text-slate-900 dark:text-white"
                     value={editPosition}
                     onChange={e => setEditPosition(e.target.value)}
                   >
-                    <option>Portero</option>
-                    <option>Defensa</option>
-                    <option>Medio</option>
-                    <option>Delantero</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Portero</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Defensa</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Medio</option>
+                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Delantero</option>
                   </select>
                 </div>
               </div>

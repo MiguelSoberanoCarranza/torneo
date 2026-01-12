@@ -160,6 +160,9 @@ const DashboardScreen: React.FC = () => {
         return 0;
       });
 
+      // Filter out any invalid leagues (no name)
+      currentLeagues = currentLeagues.filter(l => l.name && l.name.trim().length > 0);
+
       setLeagues(currentLeagues);
 
       if (currentLeagues.length > 0) {
@@ -379,7 +382,7 @@ const DashboardScreen: React.FC = () => {
                       className="bg-transparent border-none text-sm font-bold max-w-full truncate outline-none focus:ring-0 cursor-pointer text-slate-800 dark:text-white appearance-none"
                     >
                       {leagues.map(l => (
-                        <option key={l.id} value={l.id}>
+                        <option key={l.id} value={l.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
                           {l.name} {followedLeagueIds.includes(l.id) ? '★' : ''}
                         </option>
                       ))}

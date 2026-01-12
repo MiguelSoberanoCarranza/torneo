@@ -82,13 +82,13 @@ const CreateMatchScreen: React.FC = () => {
                 <div>
                     <label className="block text-sm font-medium mb-1 ml-1 text-slate-500">Equipo Local</label>
                     <select
-                        className="w-full h-12 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 px-3 outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full h-12 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 px-3 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
                         value={homeTeamId}
                         onChange={e => setHomeTeamId(e.target.value)}
                     >
-                        <option value="">Seleccionar Equipo</option>
+                        <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Seleccionar Equipo</option>
                         {teams.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
+                            <option key={t.id} value={t.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{t.name}</option>
                         ))}
                     </select>
                 </div>
@@ -97,13 +97,13 @@ const CreateMatchScreen: React.FC = () => {
                 <div>
                     <label className="block text-sm font-medium mb-1 ml-1 text-slate-500">Equipo Visitante</label>
                     <select
-                        className="w-full h-12 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 px-3 outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full h-12 rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 px-3 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
                         value={awayTeamId}
                         onChange={e => setAwayTeamId(e.target.value)}
                     >
-                        <option value="">Seleccionar Equipo</option>
+                        <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">Seleccionar Equipo</option>
                         {teams.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
+                            <option key={t.id} value={t.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{t.name}</option>
                         ))}
                     </select>
                 </div>
