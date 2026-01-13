@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
 
 import { supabase } from '../supabaseClient';
 
@@ -37,6 +38,11 @@ const LeagueTableScreen: React.FC = () => {
   const [fairPlay, setFairPlay] = useState<FairPlayStat[]>([]);
 
   const [loading, setLoading] = useState(true);
+
+  // Export State
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
@@ -257,56 +263,133 @@ const LeagueTableScreen: React.FC = () => {
     }
   };
 
+  // Function to handle image download
+  const downloadImage = async () => {
+    if (!exportRef.current) return;
+
+    setExporting(true);
+    try {
+      const element = exportRef.current;
+      const images = Array.from(element.querySelectorAll('img'));
+      const promises = images.map(img => {
+        return new Promise<void>((resolve) => {
+          if (img.src.startsWith('data:')) { resolve(); return; }
+          const originalSrc = img.src;
+          const image = new Image();
+          image.crossOrigin = "anonymous";
+          image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(image, 0, 0);
+              img.src = canvas.toDataURL('image/png');
+              img.dataset.originalSrc = originalSrc;
+            }
+            resolve();
+          };
+          image.onerror = () => { resolve(); };
+          image.src = originalSrc + '?t=' + new Date().getTime();
+        });
+      });
+
+      await Promise.race([Promise.all(promises), new Promise(resolve => setTimeout(resolve, 5000))]);
+
+      const canvas = await html2canvas(element, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#0f172a',
+        logging: false,
+        scale: 2,
+      });
+
+      images.forEach(img => {
+        if (img.dataset.originalSrc) {
+          img.src = img.dataset.originalSrc;
+          delete img.dataset.originalSrc;
+        }
+      });
+
+      const link = document.createElement('a');
+      link.download = `tabla-general-${currentLeagueName.replace(/\s+/g, '-').toLowerCase()}.png`;
+      link.href = canvas.toDataURL('image/png', 1.0);
+      link.click();
+
+      showToast("Imagen descargada correctamente", "success");
+      setShowExportModal(false);
+
+    } catch (error) {
+      console.error(error);
+      showToast("Error al exportar imagen", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const currentLeagueName = leagues.find(l => l.id === selectedLeagueId)?.name || 'Seleccionar Liga';
 
   return (
     <div className="bg-slate-50 dark:bg-slate-900 font-display antialiased text-gray-900 dark:text-white min-h-screen">
       <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden pb-24">
         {/* Header with League Selector Logic */}
-        <div className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Estadísticas</h2>
-            {/* Simple Dropdown for Leagues */}
-            <select
-              className="bg-slate-100 dark:bg-slate-800 border-none text-sm font-semibold rounded-lg p-2 max-w-[150px] truncate outline-none focus:ring-2 focus:ring-primary"
-              value={selectedLeagueId || ''}
-              onChange={(e) => setSelectedLeagueId(e.target.value)}
-            >
-              {leagues.map(l => (
-                <option key={l.id} value={l.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{l.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="max-w-3xl mx-auto w-full p-4">
+            <div className="flex flex-col gap-4">
+              {/* Row 1: Title and Actions */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Estadísticas</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+                    title="Compartir Tabla"
+                  >
+                    <span className="material-symbols-outlined">share</span>
+                  </button>
+                  <select
+                    className="bg-slate-100 dark:bg-slate-800 border-none text-sm font-semibold rounded-lg p-2 max-w-[150px] truncate outline-none focus:ring-2 focus:ring-primary"
+                    value={selectedLeagueId || ''}
+                    onChange={(e) => setSelectedLeagueId(e.target.value)}
+                  >
+                    {leagues.map(l => (
+                      <option key={l.id} value={l.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{l.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          {/* Tabs */}
-          <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-            <button
-              onClick={() => setActiveTab('general')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'general'
-                ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                }`}
-            >
-              General
-            </button>
-            <button
-              onClick={() => setActiveTab('scorers')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'scorers'
-                ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                }`}
-            >
-              Goleo
-            </button>
-            <button
-              onClick={() => setActiveTab('cards')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'cards'
-                ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                }`}
-            >
-              Tarjetas
-            </button>
+              {/* Row 2: Tabs (Full Width) */}
+              <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-full">
+                <button
+                  onClick={() => setActiveTab('general')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'general'
+                    ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                >
+                  General
+                </button>
+                <button
+                  onClick={() => setActiveTab('scorers')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'scorers'
+                    ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                >
+                  Goleo
+                </button>
+                <button
+                  onClick={() => setActiveTab('cards')}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'cards'
+                    ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    }`}
+                >
+                  Tarjetas
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -480,6 +563,214 @@ const LeagueTableScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* EXPORT MODAL */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 rounded-2xl max-w-[95vw] w-full h-[95vh] flex flex-col overflow-hidden border border-slate-800 shadow-2xl">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-bold text-lg dark:text-white">Vista Previa</h3>
+              <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                <span className="material-symbols-outlined dark:text-white">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 p-4 bg-slate-900 flex justify-center overflow-auto items-start">
+              {/* THE DESIGN TO CAPTURE */}
+              <div
+                ref={exportRef}
+                className="w-[1080px] min-h-[1350px] p-12 relative overflow-hidden shadow-2xl flex flex-col shrink-0 mx-auto"
+                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff' }}
+              >
+                {/* Background Elements - Explicit Colors */}
+                <div className="absolute top-0 left-0 w-full h-full z-0" style={{ backgroundColor: '#0a101e' }}></div>
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] blur-[150px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)' }}></div>
+                <div className="absolute bottom-0 left-0 w-[700px] h-[700px] blur-[120px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)' }}></div>
+
+                {/* Header */}
+                <div className="relative z-10 flex flex-col items-center justify-center mb-10 shrink-0 border-b pb-8" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <span className="font-bold tracking-[0.5em] uppercase text-xl mb-3 pl-[0.5em]" style={{ color: '#60a5fa' }}>Liga Premier {new Date().getFullYear()}</span>
+                  <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-4 text-center drop-shadow-lg" style={{ color: '#ffffff' }}>
+                    TABLA <span style={{ color: '#60a5fa' }}>
+                      {activeTab === 'general' ? 'GENERAL' : activeTab === 'scorers' ? 'DE GOLEO' : 'FAIR PLAY'}
+                    </span>
+                  </h1>
+                  <div className="px-8 py-3 rounded-full border text-xl font-bold uppercase tracking-widest flex items-center gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }}>
+                    <span className="material-symbols-outlined text-2xl">trophy</span>
+                    <span className="leading-none pt-[3px]">{currentLeagueName.toUpperCase()}</span>
+                  </div>
+                </div>
+
+                {/* Table List */}
+                <div className="relative z-10 flex-1 w-full overflow-hidden px-4">
+                  {/* GENERAL TABLE EXPORT */}
+                  {activeTab === 'general' && (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">#</th>
+                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold">Equipo</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">PJ</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">DG</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20" style={{ color: '#ffffff' }}>PTS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {standings.map((team, index) => (
+                          <tr key={team.id} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                            <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
+                              {index + 1}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                                  {team.shield_url ?
+                                    <img src={team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
+                                    : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>shield</span>
+                                  }
+                                </div>
+                                <span className="text-xl font-bold uppercase tracking-tight text-white">{team.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center text-xl font-bold" style={{ color: '#cbd5e1' }}>{team.played}</td>
+                            <td className="px-4 py-3 text-center text-xl font-bold" style={{ color: team.gd > 0 ? '#34d399' : team.gd < 0 ? '#f87171' : '#cbd5e1' }}>
+                              {team.gd > 0 ? `+${team.gd}` : team.gd}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="inline-block px-3 py-1 rounded-lg border font-black text-xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }}>
+                                {team.points}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {/* SCORERS TABLE EXPORT */}
+                  {activeTab === 'scorers' && (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">#</th>
+                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold">Jugador</th>
+                          <th className="px-4 py-4 text-right uppercase tracking-widest text-sm font-bold w-32" style={{ color: '#ffffff' }}>Goles</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topScorers.map((scorer, index) => (
+                          <tr key={scorer.playerId} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                            <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
+                              {index + 1}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                                  {scorer.photoUrl ?
+                                    <img src={scorer.photoUrl} className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" />
+                                    : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>person</span>
+                                  }
+                                </div>
+                                <div>
+                                  <div className="text-xl font-bold uppercase tracking-tight text-white">{scorer.name}</div>
+                                  <div className="text-sm font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: '#94a3b8' }}>
+                                    {scorer.teamShield && <img src={scorer.teamShield} className="size-4 object-contain" crossOrigin="anonymous" />}
+                                    {scorer.teamName}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="inline-block px-4 py-1 rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }}>
+                                {scorer.goals}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {/* CARDS TABLE EXPORT */}
+                  {activeTab === 'cards' && (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">#</th>
+                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold">Jugador</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20">
+                            <div className="size-4 bg-yellow-400 rounded-sm mx-auto"></div>
+                          </th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20">
+                            <div className="size-4 bg-red-500 rounded-sm mx-auto"></div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fairPlay.map((stat, index) => (
+                          <tr key={stat.playerId} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                            <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
+                              {index + 1}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                                  {stat.photoUrl ?
+                                    <img src={stat.photoUrl} className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" />
+                                    : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>person</span>
+                                  }
+                                </div>
+                                <div>
+                                  <div className="text-xl font-bold uppercase tracking-tight text-white">{stat.name}</div>
+                                  <div className="text-sm font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: '#94a3b8' }}>
+                                    {stat.teamShield && <img src={stat.teamShield} className="size-4 object-contain" crossOrigin="anonymous" />}
+                                    {stat.teamName}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center font-black text-xl" style={{ color: '#facc15' }}>{stat.yellowCards}</td>
+                            <td className="px-4 py-3 text-center font-black text-xl" style={{ color: '#f87171' }}>{stat.redCards}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="relative z-10 w-full mt-auto border-t pt-6 flex justify-between px-4 pb-4" style={{ borderColor: 'rgba(255,255,255,0.05)', opacity: 0.6 }}>
+                  <span className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2" style={{ color: '#94a3b8' }}>
+                    <span className="material-symbols-outlined text-lg">verified</span> Resultados Oficiales
+                  </span>
+                  <span className="text-sm font-bold uppercase tracking-[0.3em]" style={{ color: '#94a3b8' }}>torneo-two.vercel.app</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-white dark:bg-card-dark">
+              <button onClick={() => setShowExportModal(false)}>Cancelar</button>
+              <button
+                onClick={downloadImage}
+                disabled={exporting}
+                className="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
+              >
+                {exporting ? (
+                  <>
+                    <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></span>
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">download</span>
+                    Descargar Imagen
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -372,6 +372,8 @@ const CalendarScreen: React.FC = () => {
       away_score: match.away_score?.toString() || '',
       finished: match.status === 'finished'
     });
+
+    // Initialize with empty first, then fill
     setHomeGoalscorers(match.home_score ? Array(match.home_score).fill('') : []);
     setAwayGoalscorers(match.away_score ? Array(match.away_score).fill('') : []);
     setHomeCards([]);
@@ -389,6 +391,46 @@ const CalendarScreen: React.FC = () => {
     } else {
       setManualPlayersHome([]);
       setManualPlayersAway([]);
+    }
+
+    // Fetch existing events to populate form
+    const { data: events } = await supabase
+      .from('match_events')
+      .select(`
+        id,
+        event_type,
+        team_id,
+        player:players!match_events_player_id_fkey(name)
+      `)
+      .eq('match_id', match.id);
+
+    if (events) {
+      // GOALS
+      const homeGoals = events.filter(e => e.event_type === 'goal' && e.team_id === match.home_team_id).map(e => (e.player as any)?.name || '');
+      const awayGoals = events.filter(e => e.event_type === 'goal' && e.team_id === match.away_team_id).map(e => (e.player as any)?.name || '');
+
+      // Adjust array size to match score if needed, but prioritize existing data
+      const currentHomeScore = match.home_score || 0;
+      const currentAwayScore = match.away_score || 0;
+
+      // Fill existing info into slots
+      const finalHomeGoals = Array(currentHomeScore).fill('').map((_, i) => homeGoals[i] || '');
+      const finalAwayGoals = Array(currentAwayScore).fill('').map((_, i) => awayGoals[i] || '');
+
+      setHomeGoalscorers(finalHomeGoals);
+      setAwayGoalscorers(finalAwayGoals);
+
+      // CARDS
+      const homeCardsData = events
+        .filter(e => (e.event_type === 'yellow_card' || e.event_type === 'red_card') && e.team_id === match.home_team_id)
+        .map(e => ({ name: (e.player as any)?.name || '', type: e.event_type as 'yellow_card' | 'red_card' }));
+
+      const awayCardsData = events
+        .filter(e => (e.event_type === 'yellow_card' || e.event_type === 'red_card') && e.team_id === match.away_team_id)
+        .map(e => ({ name: (e.player as any)?.name || '', type: e.event_type as 'yellow_card' | 'red_card' }));
+
+      setHomeCards(homeCardsData);
+      setAwayCards(awayCardsData);
     }
 
     setShowManualModal(true);
@@ -421,13 +463,19 @@ const CalendarScreen: React.FC = () => {
       return;
     }
 
-    // 2. Process Goalscorers
+    // 2. Process Goalscorers and Cards
     try {
+      if (!selectedMatchManual.home_team_id || !selectedMatchManual.away_team_id) {
+        throw new Error("Faltan los IDs de los equipos para registrar eventos");
+      }
+
       // Clear existing events for this match to prevent partial duplicates on re-save
-      await supabase.from('match_events')
+      const { error: deleteError } = await supabase.from('match_events')
         .delete()
         .eq('match_id', selectedMatchManual.id)
         .in('event_type', ['goal', 'yellow_card', 'red_card']);
+
+      if (deleteError) throw deleteError;
 
       // Local cache to prevent duplicate creation during this transaction
       const currentHomePlayers = [...manualPlayersHome];
@@ -435,6 +483,10 @@ const CalendarScreen: React.FC = () => {
 
       const processPlayerEvent = async (name: string, teamId: string, eventType: string, isHome: boolean) => {
         if (!name || name.trim() === '') return;
+        if (!teamId) {
+          console.error('Missing teamId for event:', name, eventType);
+          return;
+        }
 
         const playersList = isHome ? currentHomePlayers : currentAwayPlayers;
 
@@ -455,7 +507,10 @@ const CalendarScreen: React.FC = () => {
             .select()
             .single();
 
-          if (createError) throw createError;
+          if (createError) {
+            console.error('Error creating player:', name, createError);
+            throw createError;
+          }
           playerId = newPlayer.id;
 
           // Add to local cache immediately so next iteration finds it
@@ -469,13 +524,17 @@ const CalendarScreen: React.FC = () => {
 
         // Insert Event
         if (playerId) {
-          await supabase.from('match_events').insert({
+          const { error: insertError } = await supabase.from('match_events').insert({
             match_id: selectedMatchManual.id,
             player_id: playerId,
             team_id: teamId,
             event_type: eventType,
             minute: 90
           });
+          if (insertError) {
+            console.error('Error inserting event:', insertError);
+            throw insertError;
+          }
         }
       };
 
@@ -491,12 +550,13 @@ const CalendarScreen: React.FC = () => {
       setUpdating(false);
       isSubmittingRef.current = false;
       setShowManualModal(false);
-      showToast('Resultado guardado', 'success');
+      showToast('Resultado y eventos guardados', 'success');
 
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Error saving manual events:', e);
       setUpdating(false);
       isSubmittingRef.current = false;
+      showToast('Guardado parcial: Marcador OK, pero fallaron eventos. ' + (e.message || ''), 'error');
     }
   };
 
@@ -505,56 +565,90 @@ const CalendarScreen: React.FC = () => {
     setShowExportModal(true);
   };
 
+  // Function to handle image download with robust error handling
   const downloadImage = async () => {
     if (!exportRef.current) return;
+
     setExporting(true);
     try {
-      // 1. Pre-load images as Base64 to avoid CORS issues
-      const images = Array.from(exportRef.current.getElementsByTagName('img'));
-      const originalSrcs = images.map(img => img.src);
+      const element = exportRef.current;
 
-      await Promise.all(images.map(async (img) => {
-        try {
-          const response = await fetch(img.src, { mode: 'cors' });
-          const blob = await response.blob();
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              img.src = reader.result as string;
-              resolve(null);
-            };
-            reader.readAsDataURL(blob);
-          });
-        } catch (e) {
-          console.warn("Failed to load image for export", e);
-          // Keep original src if fail
-        }
-      }));
+      // 1. Pre-process images: Convert to Base64 to bypass CORS in html2canvas
+      const images = Array.from(element.querySelectorAll('img'));
+      const promises = images.map(img => {
+        return new Promise<void>((resolve) => {
+          // Skip if already data url
+          if (img.src.startsWith('data:')) {
+            resolve();
+            return;
+          }
+
+          const originalSrc = img.src;
+          const image = new Image();
+          image.crossOrigin = "anonymous";
+          image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            try {
+              if (ctx) {
+                ctx.drawImage(image, 0, 0);
+                // Replace src with base64
+                img.src = canvas.toDataURL('image/png');
+                // Store original to restore later
+                img.dataset.originalSrc = originalSrc;
+              }
+            } catch (e) {
+              console.warn('Failed to convert image to base64 (tainted canvas?), keeping original URL', originalSrc);
+            }
+            resolve();
+          };
+          image.onerror = () => {
+            console.warn('Failed to load image for CORS processing:', originalSrc);
+            // Don't reject, just continue with original URL -> html2canvas might still handle it or show blank
+            resolve();
+          };
+          // Append timestamp to avoid cache issues if needed
+          image.src = originalSrc + '?t=' + new Date().getTime();
+        });
+      });
+
+      // Wait for all images (or timeout after 5s to prevent hanging)
+      await Promise.race([
+        Promise.all(promises),
+        new Promise(resolve => setTimeout(resolve, 5000))
+      ]);
 
       // 2. Capture
-      const canvas = await html2canvas(exportRef.current, {
+      const canvas = await html2canvas(element, {
         useCORS: true,
-        allowTaint: true, // Try to allow if CORS fails slightly, but mainly rely on Base64 above
-        backgroundColor: '#0f172a',
-        scale: 2,
-        logging: false
+        allowTaint: true,
+        backgroundColor: '#0f172a', // Match bg color
+        logging: false,
+        scale: 2, // 2x resolution for high quality
       });
 
-      // 3. Restore images (optional, as modal might close, but good practice)
-      images.forEach((img, i) => {
-        img.src = originalSrcs[i];
+      // 3. Restore original images
+      images.forEach(img => {
+        if (img.dataset.originalSrc) {
+          img.src = img.dataset.originalSrc;
+          delete img.dataset.originalSrc;
+        }
       });
 
-      const dataUrl = canvas.toDataURL('image/png');
+      // 4. Download
       const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `Jornada-${exportData?.round || 1}.png`;
+      link.download = `jornada-${exportData.round}-premier.png`;
+      link.href = canvas.toDataURL('image/png', 1.0); // Max quality
       link.click();
-      showToast("Imagen descargada", "success");
-      setShowExportModal(false);
+
+      showToast("Imagen descargada correctamente", "success");
+      setShowExportModal(false); // Close modal on success
+
     } catch (error) {
       console.error(error);
-      showToast("Error al exportar imagen (Intenta de nuevo)", "error");
+      showToast("Error al exportar imagen", "error");
     } finally {
       setExporting(false);
     }
@@ -587,7 +681,68 @@ const CalendarScreen: React.FC = () => {
     }
   };
 
+  const handleResetMatch = async (match: Match) => {
+    if (!window.confirm('¿Reiniciar partido? Se borrarán el resultado y los eventos (goles/tarjetas).')) return;
 
+    setUpdating(true);
+    try {
+      // 1. Reset Match
+      const { error: matchError } = await supabase
+        .from('matches')
+        .update({ status: 'scheduled', home_score: 0, away_score: 0 })
+        .eq('id', match.id);
+
+      if (matchError) throw matchError;
+
+      // 2. Clear Events
+      const { error: eventsError } = await supabase
+        .from('match_events')
+        .delete()
+        .eq('match_id', match.id);
+
+      if (eventsError) throw eventsError;
+
+      // 3. Update Local State
+      setMatches(prev => prev.map(m => m.id === match.id ? { ...m, status: 'scheduled', home_score: 0, away_score: 0 } : m));
+      showToast('Partido reiniciado', 'success');
+
+    } catch (e: any) {
+      console.error(e);
+      showToast('Error al reiniciar', 'error');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background-light dark:bg-background-dark">
+        <span className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary"></span>
+      </div>
+    );
+  }
+
+  // Access Control
+  const allowedRoles = ['admin', 'superadmin', 'referee'];
+  if (!role || !allowedRoles.includes(role)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background-light dark:bg-background-dark p-4">
+        <div className="bg-white dark:bg-surface-dark p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 text-center max-w-md w-full">
+          <span className="material-symbols-outlined text-6xl text-slate-400 mb-4 bg-slate-100 dark:bg-slate-800 p-6 rounded-full">lock</span>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase italic tracking-tighter">Acceso Restringido</h2>
+          <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium">
+            Solo el personal autorizado (Administradores y Árbitros) puede acceder al calendario de gestión.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-primary hover:bg-primary-dark text-white py-4 rounded-xl font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/30"
+          >
+            Volver al Inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background-light dark:bg-background-dark transition-colors duration-200 min-h-screen">
@@ -732,26 +887,34 @@ const CalendarScreen: React.FC = () => {
                         key={match.id}
                         onClick={() => {
                           const isOwner = user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id;
-                          if (role === 'admin' || role === 'referee' || isOwner) {
+                          // Only navigate if NOT finished and authorized
+                          if ((role === 'admin' || role === 'referee' || isOwner) && match.status !== 'finished') {
                             navigate('/referee-match-control', { state: { matchId: match.id } });
                           }
                         }}
-                        className={`bg-white dark:bg-surface-dark rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm transition-all ${(role === 'admin' || role === 'referee') ? 'cursor-pointer hover:border-primary active:scale-[0.99]' : ''
-                          }`}
+                        className={`bg-white dark:bg-surface-dark rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm transition-all ${(role === 'admin' || role === 'referee') && match.status !== 'finished' ? 'cursor-pointer hover:border-primary active:scale-[0.99]' : ''}`}
                       >
                         <div className="flex justify-between items-center mb-3">
                           <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">{formatTime(match.start_time)}</span>
-                          {/* Edit Button */}
+                          {/* Edit Details (Admin Only) */}
                           {match.status === 'scheduled' && (role === 'admin' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEditClick(match);
+                                setEditingMatch(match);
+                                setEditForm({
+                                  date: match.start_time.split('T')[0],
+                                  time: new Date(match.start_time).toTimeString().substring(0, 5),
+                                  round: match.round_number || 1,
+                                  home_team_id: match.home_team_id,
+                                  away_team_id: match.away_team_id,
+                                  location: match.location || ''
+                                });
+                                setIsCreating(false);
                               }}
-                              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
-                              title="Editar Partido"
+                              className="text-slate-400 hover:text-primary transition-colors p-1"
                             >
-                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                              <span className="material-symbols-outlined text-[18px]">settings</span>
                             </button>
                           )}
                         </div>
@@ -765,12 +928,39 @@ const CalendarScreen: React.FC = () => {
                             <span className="text-xs font-bold text-center leading-tight">{match.home_team?.name || 'Local'}</span>
                           </div>
 
-                          {/* Score / VS */}
                           {/* Score / VS / Actions */}
                           <div className="flex flex-col items-center px-2">
                             {match.status === 'finished' || match.status === 'live' || match.status === 'break' ? (
-                              <div className="text-2xl font-black tracking-tight font-mono">
-                                {match.home_score} - {match.away_score}
+                              <div className="flex flex-col items-center">
+                                <div className="text-2xl font-black tracking-tight font-mono">
+                                  {match.home_score} - {match.away_score}
+                                </div>
+
+                                {/* Finished Actions: Reset and Edit */}
+                                {match.status === 'finished' && (role === 'admin' || role === 'referee' || (user && leagues.find(l => l.id === match.league_id)?.owner_id === user.id)) && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleResetMatch(match);
+                                      }}
+                                      className="text-[10px] uppercase font-bold text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                                      Reiniciar
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openManualEntry(match);
+                                      }}
+                                      className="text-[10px] uppercase font-bold text-slate-500 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">edit_note</span>
+                                      Editar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="flex flex-col items-center gap-2">
@@ -1166,7 +1356,7 @@ const CalendarScreen: React.FC = () => {
         {
           showExportModal && exportData && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-card-dark rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col">
+              <div className="bg-slate-900 rounded-2xl max-w-[95vw] w-full h-[95vh] flex flex-col overflow-hidden border border-slate-800 shadow-2xl">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                   <h3 className="font-bold text-lg dark:text-white">Vista Previa</h3>
                   <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
@@ -1174,103 +1364,100 @@ const CalendarScreen: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="flex-1 p-4 bg-slate-900 flex justify-center overflow-auto items-center">
+                <div className="flex-1 p-4 bg-slate-900 flex justify-center overflow-auto items-start">
                   {/* THE DESIGN TO CAPTURE */}
                   <div
                     ref={exportRef}
-                    className="w-[1200px] h-[630px] bg-slate-900 text-white p-0 relative overflow-hidden shadow-2xl flex flex-col"
-                    style={{ fontFamily: 'Inter, sans-serif' }}
+                    className="w-[1080px] h-[1350px] p-12 relative overflow-hidden shadow-2xl flex flex-col shrink-0 mx-auto"
+                    style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff' }}
                   >
-                    {/* Background Elements */}
-                    <div className="absolute top-0 left-0 w-full h-full bg-[#0a101e] z-0"></div>
-                    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/10 blur-[150px] rounded-full z-0 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-emerald-500/5 blur-[120px] rounded-full z-0 pointer-events-none"></div>
+                    {/* Background Elements - Explicit Colors */}
+                    <div className="absolute top-0 left-0 w-full h-full z-0" style={{ backgroundColor: '#0a101e' }}></div>
+                    <div className="absolute top-0 right-0 w-[800px] h-[800px] blur-[150px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)' }}></div>
+                    <div className="absolute bottom-0 left-0 w-[700px] h-[700px] blur-[120px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)' }}></div>
 
-                    {/* Top Content (Header) */}
-                    <div className="relative z-10 w-full pt-8 pb-4 flex flex-col items-center shrink-0">
-                      <div className="flex items-center gap-4 mb-2">
-                        <div className="px-5 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-[0.2em]">
-                          {leagues.find(l => l.id === selectedLeagueId)?.name || 'TORNEO'}
-                        </div>
-                        <div className="h-4 w-[1px] bg-slate-700"></div>
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                          <span className="text-xs font-bold uppercase tracking-widest">{groupedMatches[exportData.round] && groupedMatches[exportData.round][0] ? formatDate(groupedMatches[exportData.round][0].start_time) : ''}</span>
-                        </div>
-                      </div>
-
-                      <h1 className="text-5xl font-black italic tracking-tighter text-white mb-0 uppercase drop-shadow-lg flex items-center gap-3">
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Jornada</span>
-                        <span className="text-blue-500">{exportData.round}</span>
+                    {/* Header */}
+                    <div className="relative z-10 flex flex-col items-center justify-center mb-10 shrink-0 border-b pb-8" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                      <span className="font-bold tracking-[0.5em] uppercase text-xl mb-3 pl-[0.5em]" style={{ color: '#60a5fa' }}>Liga Premier {new Date().getFullYear()}</span>
+                      <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-4 text-center drop-shadow-lg" style={{ color: '#ffffff' }}>
+                        Jornada <span style={{ color: '#60a5fa' }}>{exportData.round}</span>
                       </h1>
+                      <div className="px-8 py-3 rounded-full border text-xl font-bold uppercase tracking-widest flex items-center gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }}>
+                        <span className="material-symbols-outlined text-2xl">calendar_today</span>
+                        <span className="leading-none pt-[3px]">{groupedMatches[exportData.round] && groupedMatches[exportData.round][0] ? formatDate(groupedMatches[exportData.round][0].start_time).toUpperCase() : 'FECHA'}</span>
+                      </div>
                     </div>
 
-                    {/* Main Content (Matches Grid) */}
-                    <div className="relative z-10 flex-1 px-12 pb-8 overflow-hidden flex items-center">
-                      <div className="w-full grid grid-cols-2 gap-x-12 gap-y-3 align-content-center">
-                        {exportData.matches.map(m => (
-                          <div key={m.id} className="flex items-center bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 p-3 rounded-xl relative group">
-                            {/* Glow Bar */}
-                            {m.status === 'live' && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 to-orange-500"></div>}
+                    {/* Matches List */}
+                    <div className="relative z-10 flex-1 flex flex-col justify-start gap-5 w-full overflow-hidden px-4">
+                      {exportData.matches.map(m => (
+                        <div key={m.id} className="rounded-2xl px-4 py-4 flex items-center border shadow-xl relative w-full min-h-[120px]"
+                          style={{ backgroundColor: 'rgba(30, 41, 59, 1)', borderColor: 'rgba(255,255,255,0.25)' }}>
 
-                            {/* Time */}
-                            <div className="w-16 flex flex-col items-center justify-center border-r border-slate-700/30 pr-3 mr-3 shrink-0">
-                              {m.status === 'finished' ? (
-                                <span className="text-xs font-black text-slate-500">FINAL</span>
+                          {/* Live Strip */}
+                          {m.status === 'live' && <div className="absolute left-0 top-0 bottom-0 w-2 animate-pulse rounded-l-2xl" style={{ background: 'linear-gradient(to bottom, #3b82f6, #10b981)' }}></div>}
+
+                          {/* Time */}
+                          <div className="w-24 flex flex-col items-center justify-center border-r pr-4 mr-4 shrink-0" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
+                            {m.status === 'finished' ? (
+                              <span className="text-lg font-black" style={{ color: '#94a3b8' }}>FINAL</span>
+                            ) : (
+                              <>
+                                <span className="text-3xl font-black leading-none" style={{ color: '#ffffff' }}>{formatTime(m.start_time).split(':')[0]}:{formatTime(m.start_time).split(':')[1]}</span>
+                                <span className="text-xs font-bold uppercase mt-1 tracking-widest" style={{ color: '#94a3b8' }}>{formatTime(m.start_time).includes('PM') ? 'PM' : 'AM'}</span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Match Content */}
+                          <div className="flex-1 flex items-center justify-between gap-2">
+
+                            {/* Home Team */}
+                            <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
+                              <span className="text-2xl font-bold text-right leading-tight break-words uppercase max-w-[220px]" style={{ color: '#ffffff' }}>{m.home_team?.name}</span>
+                              <div className="w-20 h-20 flex items-center justify-center shrink-0 rounded-full p-1 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}>
+                                {m.home_team?.shield_url ?
+                                  <img src={m.home_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
+                                  : <span className="material-symbols-outlined text-4xl" style={{ color: '#64748b' }}>shield</span>
+                                }
+                              </div>
+                            </div>
+
+                            {/* VS / Center */}
+                            <div className="w-20 flex justify-center shrink-0">
+                              {m.status === 'scheduled' ? (
+                                <span className="text-2xl font-black italic opacity-50" style={{ color: '#475569' }}>VS</span>
                               ) : (
-                                <>
-                                  <span className="text-lg font-bold text-white leading-none">{formatTime(m.start_time).split(':')[0]}:{formatTime(m.start_time).split(':')[1]}</span>
-                                  <span className="text-[9px] font-bold text-slate-500 uppercase">{formatTime(m.start_time).includes('PM') ? 'PM' : 'AM'}</span>
-                                </>
+                                <div className="px-4 py-1.5 rounded-xl border flex items-center gap-1 shadow-inner" style={{ backgroundColor: 'rgba(2, 6, 23, 0.8)', borderColor: 'rgba(255,255,255,0.2)' }}>
+                                  <span className="text-2xl font-black" style={{ color: '#ffffff' }}>{m.home_score}</span>
+                                  <span className="text-lg" style={{ color: '#64748b' }}>-</span>
+                                  <span className="text-2xl font-black" style={{ color: '#ffffff' }}>{m.away_score}</span>
+                                </div>
                               )}
                             </div>
 
-                            {/* Match Info */}
-                            <div className="flex-1 flex items-center justify-between gap-2 overflow-hidden">
-                              {/* Home */}
-                              <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
-                                <span className="text-lg font-bold text-white text-right truncate uppercase">{m.home_team?.name}</span>
-                                <div className="w-10 h-10 shrink-0 flex items-center justify-center">
-                                  {m.home_team?.shield_url ?
-                                    <img src={m.home_team.shield_url} className="w-full h-full object-contain filter drop-shadow-lg" crossOrigin="anonymous" />
-                                    : <span className="material-symbols-outlined text-2xl text-slate-600">shield</span>
-                                  }
-                                </div>
+                            {/* Away Team */}
+                            <div className="flex-1 flex items-center justify-start gap-3 min-w-0">
+                              <div className="w-20 h-20 flex items-center justify-center shrink-0 rounded-full p-1 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}>
+                                {m.away_team?.shield_url ?
+                                  <img src={m.away_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
+                                  : <span className="material-symbols-outlined text-4xl" style={{ color: '#64748b' }}>shield</span>
+                                }
                               </div>
-
-                              {/* Score/VS */}
-                              <div className="px-2 shrink-0">
-                                {m.status === 'scheduled' ? (
-                                  <span className="text-sm font-black text-slate-700 italic">VS</span>
-                                ) : (
-                                  <div className="flex items-center gap-2 bg-slate-900/50 px-2 py-1 rounded border border-slate-700/50">
-                                    <span className="text-xl font-bold text-white">{m.home_score}</span>
-                                    <span className="text-slate-600">:</span>
-                                    <span className="text-xl font-bold text-white">{m.away_score}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Away */}
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className="w-10 h-10 shrink-0 flex items-center justify-center">
-                                  {m.away_team?.shield_url ?
-                                    <img src={m.away_team.shield_url} className="w-full h-full object-contain filter drop-shadow-lg" crossOrigin="anonymous" />
-                                    : <span className="material-symbols-outlined text-2xl text-slate-600">shield</span>
-                                  }
-                                </div>
-                                <span className="text-lg font-bold text-white text-left truncate uppercase">{m.away_team?.name}</span>
-                              </div>
+                              <span className="text-2xl font-bold text-left leading-tight break-words uppercase max-w-[220px]" style={{ color: '#ffffff' }}>{m.away_team?.name}</span>
                             </div>
+
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Footer Branding */}
-                    <div className="relative z-10 w-full py-3 border-t border-slate-800/50 flex justify-between px-8 bg-black/20 text-[10px] text-slate-500 font-bold tracking-widest uppercase">
-                      <span>Resultados Oficiales</span>
-                      <span>ligapremier.com</span>
+                    {/* Footer */}
+                    <div className="relative z-10 w-full mt-auto border-t pt-6 flex justify-between px-4 pb-4" style={{ borderColor: 'rgba(255,255,255,0.05)', opacity: 0.6 }}>
+                      <span className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2" style={{ color: '#94a3b8' }}>
+                        <span className="material-symbols-outlined text-lg">verified</span> Resultados Oficiales
+                      </span>
+                      <span className="text-sm font-bold uppercase tracking-[0.3em]" style={{ color: '#94a3b8' }}>torneo-two.vercel.app</span>
                     </div>
                   </div>
                 </div>
@@ -1278,7 +1465,6 @@ const CalendarScreen: React.FC = () => {
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-white dark:bg-card-dark">
                   <button
                     onClick={() => setShowExportModal(false)}
-                    className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   >
                     Cancelar
                   </button>
