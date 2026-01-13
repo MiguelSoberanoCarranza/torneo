@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
+import html2canvas from 'html2canvas';
 
 interface Match {
   id: string;
@@ -58,6 +59,13 @@ const CalendarScreen: React.FC = () => {
   const [awayGoalscorers, setAwayGoalscorers] = useState<string[]>([]);
   const [homeCards, setHomeCards] = useState<{ name: string, type: 'yellow_card' | 'red_card' }[]>([]);
   const [awayCards, setAwayCards] = useState<{ name: string, type: 'yellow_card' | 'red_card' }[]>([]);
+
+  /* Export State */
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportData, setExportData] = useState<{ round: number; matches: Match[] } | null>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const fetchRoleAndMatches = async () => {
@@ -289,8 +297,11 @@ const CalendarScreen: React.FC = () => {
 
       // Conflict Validation Removed: Teams CAN play multiple times in a round (Jornada Doble)
 
-      // Construct ISO string
-      const dateTimeString = `${editForm.date}T${editForm.time}:00`;
+      // Construct ISO string handling Timezone
+      const [year, month, day] = editForm.date.split('-').map(Number);
+      const [hours, minutes] = editForm.time.split(':').map(Number);
+      const localDate = new Date(year, month - 1, day, hours, minutes);
+      const dateTimeString = localDate.toISOString();
 
       const homeTeam = teams.find(t => t.id === editForm.home_team_id);
       const awayTeam = teams.find(t => t.id === editForm.away_team_id);
@@ -484,10 +495,69 @@ const CalendarScreen: React.FC = () => {
 
     } catch (e) {
       console.error(e);
-      showToast('Error al guardar datos', 'error');
+      setUpdating(false);
+      isSubmittingRef.current = false;
     }
+  };
 
-    setUpdating(false);
+  const handleExportClick = (round: number, matches: Match[]) => {
+    setExportData({ round, matches });
+    setShowExportModal(true);
+  };
+
+  const downloadImage = async () => {
+    if (!exportRef.current) return;
+    setExporting(true);
+    try {
+      // 1. Pre-load images as Base64 to avoid CORS issues
+      const images = Array.from(exportRef.current.getElementsByTagName('img'));
+      const originalSrcs = images.map(img => img.src);
+
+      await Promise.all(images.map(async (img) => {
+        try {
+          const response = await fetch(img.src, { mode: 'cors' });
+          const blob = await response.blob();
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              img.src = reader.result as string;
+              resolve(null);
+            };
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.warn("Failed to load image for export", e);
+          // Keep original src if fail
+        }
+      }));
+
+      // 2. Capture
+      const canvas = await html2canvas(exportRef.current, {
+        useCORS: true,
+        allowTaint: true, // Try to allow if CORS fails slightly, but mainly rely on Base64 above
+        backgroundColor: '#0f172a',
+        scale: 2,
+        logging: false
+      });
+
+      // 3. Restore images (optional, as modal might close, but good practice)
+      images.forEach((img, i) => {
+        img.src = originalSrcs[i];
+      });
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `Jornada-${exportData?.round || 1}.png`;
+      link.click();
+      showToast("Imagen descargada", "success");
+      setShowExportModal(false);
+    } catch (error) {
+      console.error(error);
+      showToast("Error al exportar imagen (Intenta de nuevo)", "error");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleDeleteMatch = async () => {
@@ -636,15 +706,24 @@ const CalendarScreen: React.FC = () => {
 
               return (
                 <div key={round} className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center justify-between mt-2">
                     <div className="flex flex-col">
                       <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider w-fit">
                         Jornada {round}
                       </span>
                       <span className="text-xs text-slate-400 font-medium ml-1 mt-1 capitalize">{roundDate}</span>
                     </div>
-                    <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mt-auto mb-2"></div>
+                    <button
+                      onClick={() => handleExportClick(round, roundMatches)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">share</span>
+                      Compartir
+                    </button>
                   </div>
+
+                  <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 mt-auto mb-2"></div>
+
 
                   {/* Responsive Grid for Matches */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -752,334 +831,481 @@ const CalendarScreen: React.FC = () => {
         </div>
 
         {/* Manual Entry Modal */}
-        {showManualModal && selectedMatchManual && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white dark:bg-card-dark rounded-xl w-full max-w-md md:max-w-3xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
-              {/* Header */}
-              <div className="p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <h3 className="font-bold text-lg text-center text-slate-900 dark:text-white">Resultado Manual</h3>
-              </div>
-
-              {/* Scrollable Content */}
-              <div className="p-4 overflow-y-auto flex-1">
-                <div className="flex items-center justify-between mb-6 gap-4">
-                  <div className="flex flex-col items-center">
-                    <label className="text-xs font-bold mb-1 truncate max-w-[100px] text-slate-900 dark:text-white">{selectedMatchManual.home_team?.name}</label>
-                    <input
-                      type="number"
-                      className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white"
-                      value={manualResult.home_score}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setManualResult({ ...manualResult, home_score: val });
-                        const count = parseInt(val) || 0;
-                        setHomeGoalscorers(prev => {
-                          const newArr = [...prev];
-                          if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
-                          return newArr.slice(0, count);
-                        });
-                      }}
-                    />
-                  </div>
-                  <span className="text-2xl font-bold text-slate-300">-</span>
-                  <div className="flex flex-col items-center">
-                    <label className="text-xs font-bold mb-1 truncate max-w-[100px] text-slate-900 dark:text-white">{selectedMatchManual.away_team?.name}</label>
-                    <input
-                      type="number"
-                      className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white"
-                      value={manualResult.away_score}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setManualResult({ ...manualResult, away_score: val });
-                        const count = parseInt(val) || 0;
-                        setAwayGoalscorers(prev => {
-                          const newArr = [...prev];
-                          if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
-                          return newArr.slice(0, count);
-                        });
-                      }}
-                    />
-                  </div>
+        {
+          showManualModal && selectedMatchManual && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white dark:bg-card-dark rounded-xl w-full max-w-md md:max-w-3xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  <h3 className="font-bold text-lg text-center text-slate-900 dark:text-white">Resultado Manual</h3>
                 </div>
 
-                {/* Goalscorers Inputs */}
-                {(homeGoalscorers.length > 0 || awayGoalscorers.length > 0) && (
-                  <div className="flex flex-col md:flex-row gap-4 mb-6 transition-all">
-                    {/* Home Scorers */}
+                {/* Scrollable Content */}
+                <div className="p-4 overflow-y-auto flex-1">
+                  <div className="flex items-center justify-between mb-6 gap-4">
+                    <div className="flex flex-col items-center">
+                      <label className="text-xs font-bold mb-1 truncate max-w-[100px] text-slate-900 dark:text-white">{selectedMatchManual.home_team?.name}</label>
+                      <input
+                        type="number"
+                        className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white"
+                        value={manualResult.home_score}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setManualResult({ ...manualResult, home_score: val });
+                          const count = parseInt(val) || 0;
+                          setHomeGoalscorers(prev => {
+                            const newArr = [...prev];
+                            if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
+                            return newArr.slice(0, count);
+                          });
+                        }}
+                      />
+                    </div>
+                    <span className="text-2xl font-bold text-slate-300">-</span>
+                    <div className="flex flex-col items-center">
+                      <label className="text-xs font-bold mb-1 truncate max-w-[100px] text-slate-900 dark:text-white">{selectedMatchManual.away_team?.name}</label>
+                      <input
+                        type="number"
+                        className="w-16 h-16 text-center text-3xl font-bold bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white"
+                        value={manualResult.away_score}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setManualResult({ ...manualResult, away_score: val });
+                          const count = parseInt(val) || 0;
+                          setAwayGoalscorers(prev => {
+                            const newArr = [...prev];
+                            if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
+                            return newArr.slice(0, count);
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Goalscorers Inputs */}
+                  {(homeGoalscorers.length > 0 || awayGoalscorers.length > 0) && (
+                    <div className="flex flex-col md:flex-row gap-4 mb-6 transition-all">
+                      {/* Home Scorers */}
+                      <div className="flex-1 flex flex-col gap-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleadores ({selectedMatchManual.home_team?.name?.substring(0, 10)})</span>
+                        {homeGoalscorers.map((scorer, idx) => (
+                          <div key={`h-${idx}`}>
+                            <input
+                              list="home-players"
+                              placeholder={`Gol ${idx + 1}`}
+                              className="w-full text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                              value={scorer}
+                              onChange={(e) => {
+                                const newArr = [...homeGoalscorers];
+                                newArr[idx] = e.target.value;
+                                setHomeGoalscorers(newArr);
+                              }}
+                            />
+                            <datalist id="home-players">
+                              {manualPlayersHome.map(p => <option key={p.id} value={p.name} />)}
+                            </datalist>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Away Scorers */}
+                      <div className="flex-1 flex flex-col gap-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleadores ({selectedMatchManual.away_team?.name?.substring(0, 10)})</span>
+                        {awayGoalscorers.map((scorer, idx) => (
+                          <div key={`a-${idx}`}>
+                            <input
+                              list="away-players"
+                              placeholder={`Gol ${idx + 1}`}
+                              className="w-full text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                              value={scorer}
+                              onChange={(e) => {
+                                const newArr = [...awayGoalscorers];
+                                newArr[idx] = e.target.value;
+                                setAwayGoalscorers(newArr);
+                              }}
+                            />
+                            <datalist id="away-players">
+                              {manualPlayersAway.map(p => <option key={p.id} value={p.name} />)}
+                            </datalist>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cards Section */}
+                  <div className="flex flex-col md:flex-row gap-4 mb-8">
+                    {/* Home Cards */}
                     <div className="flex-1 flex flex-col gap-2">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleadores ({selectedMatchManual.home_team?.name?.substring(0, 10)})</span>
-                      {homeGoalscorers.map((scorer, idx) => (
-                        <div key={`h-${idx}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarjetas ({selectedMatchManual.home_team?.name?.substring(0, 10)})</span>
+                        <button
+                          onClick={() => setHomeCards([...homeCards, { name: '', type: 'yellow_card' }])}
+                          className="p-1 px-2 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">add</span>
+                        </button>
+                      </div>
+                      {homeCards.map((card, idx) => (
+                        <div key={`hc-${idx}`} className="flex gap-2 items-center">
                           <input
                             list="home-players"
-                            placeholder={`Gol ${idx + 1}`}
-                            className="w-full text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
-                            value={scorer}
+                            placeholder="Jugador"
+                            className="flex-1 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 min-w-0 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                            value={card.name}
                             onChange={(e) => {
-                              const newArr = [...homeGoalscorers];
-                              newArr[idx] = e.target.value;
-                              setHomeGoalscorers(newArr);
+                              const newArr = [...homeCards];
+                              newArr[idx].name = e.target.value;
+                              setHomeCards(newArr);
                             }}
                           />
-                          <datalist id="home-players">
-                            {manualPlayersHome.map(p => <option key={p.id} value={p.name} />)}
-                          </datalist>
+                          <button
+                            onClick={() => {
+                              const newArr = [...homeCards];
+                              newArr[idx].type = newArr[idx].type === 'yellow_card' ? 'red_card' : 'yellow_card';
+                              setHomeCards(newArr);
+                            }}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-100 border border-yellow-300' : 'bg-red-100 border border-red-300'}`}
+                          >
+                            <div className={`w-4 h-5 rounded-sm shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-400' : 'bg-red-500'}`}></div>
+                          </button>
+                          <button
+                            onClick={() => setHomeCards(homeCards.filter((_, i) => i !== idx))}
+                            className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">close</span>
+                          </button>
                         </div>
                       ))}
                     </div>
-                    {/* Away Scorers */}
+
+                    {/* Away Cards */}
                     <div className="flex-1 flex flex-col gap-2">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goleadores ({selectedMatchManual.away_team?.name?.substring(0, 10)})</span>
-                      {awayGoalscorers.map((scorer, idx) => (
-                        <div key={`a-${idx}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarjetas ({selectedMatchManual.away_team?.name?.substring(0, 10)})</span>
+                        <button
+                          onClick={() => setAwayCards([...awayCards, { name: '', type: 'yellow_card' }])}
+                          className="p-1 px-2 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">add</span>
+                        </button>
+                      </div>
+                      {awayCards.map((card, idx) => (
+                        <div key={`ac-${idx}`} className="flex gap-2 items-center">
                           <input
                             list="away-players"
-                            placeholder={`Gol ${idx + 1}`}
-                            className="w-full text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
-                            value={scorer}
+                            placeholder="Jugador"
+                            className="flex-1 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 min-w-0 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                            value={card.name}
                             onChange={(e) => {
-                              const newArr = [...awayGoalscorers];
-                              newArr[idx] = e.target.value;
-                              setAwayGoalscorers(newArr);
+                              const newArr = [...awayCards];
+                              newArr[idx].name = e.target.value;
+                              setAwayCards(newArr);
                             }}
                           />
-                          <datalist id="away-players">
-                            {manualPlayersAway.map(p => <option key={p.id} value={p.name} />)}
-                          </datalist>
+                          <button
+                            onClick={() => {
+                              const newArr = [...awayCards];
+                              newArr[idx].type = newArr[idx].type === 'yellow_card' ? 'red_card' : 'yellow_card';
+                              setAwayCards(newArr);
+                            }}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-100 border border-yellow-300' : 'bg-red-100 border border-red-300'}`}
+                          >
+                            <div className={`w-4 h-5 rounded-sm shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-400' : 'bg-red-500'}`}></div>
+                          </button>
+                          <button
+                            onClick={() => setAwayCards(awayCards.filter((_, i) => i !== idx))}
+                            className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">close</span>
+                          </button>
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* Cards Section */}
-                <div className="flex flex-col md:flex-row gap-4 mb-8">
-                  {/* Home Cards */}
-                  <div className="flex-1 flex flex-col gap-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarjetas ({selectedMatchManual.home_team?.name?.substring(0, 10)})</span>
-                      <button
-                        onClick={() => setHomeCards([...homeCards, { name: '', type: 'yellow_card' }])}
-                        className="p-1 px-2 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">add</span>
-                      </button>
-                    </div>
-                    {homeCards.map((card, idx) => (
-                      <div key={`hc-${idx}`} className="flex gap-2 items-center">
-                        <input
-                          list="home-players"
-                          placeholder="Jugador"
-                          className="flex-1 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 min-w-0 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
-                          value={card.name}
-                          onChange={(e) => {
-                            const newArr = [...homeCards];
-                            newArr[idx].name = e.target.value;
-                            setHomeCards(newArr);
-                          }}
-                        />
-                        <button
-                          onClick={() => {
-                            const newArr = [...homeCards];
-                            newArr[idx].type = newArr[idx].type === 'yellow_card' ? 'red_card' : 'yellow_card';
-                            setHomeCards(newArr);
-                          }}
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-100 border border-yellow-300' : 'bg-red-100 border border-red-300'}`}
-                        >
-                          <div className={`w-4 h-5 rounded-sm shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-400' : 'bg-red-500'}`}></div>
-                        </button>
-                        <button
-                          onClick={() => setHomeCards(homeCards.filter((_, i) => i !== idx))}
-                          className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">close</span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Away Cards */}
-                  <div className="flex-1 flex flex-col gap-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarjetas ({selectedMatchManual.away_team?.name?.substring(0, 10)})</span>
-                      <button
-                        onClick={() => setAwayCards([...awayCards, { name: '', type: 'yellow_card' }])}
-                        className="p-1 px-2 bg-slate-100 dark:bg-slate-800 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">add</span>
-                      </button>
-                    </div>
-                    {awayCards.map((card, idx) => (
-                      <div key={`ac-${idx}`} className="flex gap-2 items-center">
-                        <input
-                          list="away-players"
-                          placeholder="Jugador"
-                          className="flex-1 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 min-w-0 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
-                          value={card.name}
-                          onChange={(e) => {
-                            const newArr = [...awayCards];
-                            newArr[idx].name = e.target.value;
-                            setAwayCards(newArr);
-                          }}
-                        />
-                        <button
-                          onClick={() => {
-                            const newArr = [...awayCards];
-                            newArr[idx].type = newArr[idx].type === 'yellow_card' ? 'red_card' : 'yellow_card';
-                            setAwayCards(newArr);
-                          }}
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-100 border border-yellow-300' : 'bg-red-100 border border-red-300'}`}
-                        >
-                          <div className={`w-4 h-5 rounded-sm shadow-sm ${card.type === 'yellow_card' ? 'bg-yellow-400' : 'bg-red-500'}`}></div>
-                        </button>
-                        <button
-                          onClick={() => setAwayCards(awayCards.filter((_, i) => i !== idx))}
-                          className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">close</span>
-                        </button>
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-2 mb-2 justify-center">
+                    <input
+                      type="checkbox"
+                      id="markFinished"
+                      className="w-5 h-5 accent-primary"
+                      checked={manualResult.finished}
+                      onChange={(e) => setManualResult({ ...manualResult, finished: e.target.checked })}
+                    />
+                    <label htmlFor="markFinished" className="font-medium text-slate-900 dark:text-white">Marcar como Finalizado</label>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mb-2 justify-center">
-                  <input
-                    type="checkbox"
-                    id="markFinished"
-                    className="w-5 h-5 accent-primary"
-                    checked={manualResult.finished}
-                    onChange={(e) => setManualResult({ ...manualResult, finished: e.target.checked })}
-                  />
-                  <label htmlFor="markFinished" className="font-medium text-slate-900 dark:text-white">Marcar como Finalizado</label>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowManualModal(false)}
-                    className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={saveManualResult}
-                    disabled={updating}
-                    className="flex-1 py-3 rounded-xl font-bold text-white bg-primary flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
-                  >
-                    {updating && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}
-                    Guardar
-                  </button>
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowManualModal(false)}
+                      className="flex-1 py-3 rounded-xl font-bold text-slate-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={saveManualResult}
+                      disabled={updating}
+                      className="flex-1 py-3 rounded-xl font-bold text-white bg-primary flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                    >
+                      {updating && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}
+                      Guardar
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
         {/* Create Match Fab */}
-        {(editingMatch || isCreating) && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-surface-dark rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-                {isCreating ? 'Crear Partido' : 'Editar Partido'}
-              </h3>
+        {
+          (editingMatch || isCreating) && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white dark:bg-surface-dark rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                  {isCreating ? 'Crear Partido' : 'Editar Partido'}
+                </h3>
 
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Jornada</label>
-                  <input
-                    type="number"
-                    value={editForm.round}
-                    onChange={e => setEditForm({ ...editForm, round: parseInt(e.target.value) || 0 })}
-                    className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Local</label>
-                    <select
-                      value={editForm.home_team_id}
-                      onChange={(e) => setEditForm({ ...editForm, home_team_id: e.target.value })}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm appearance-none"
-                    >
-                      <option value="">Seleccionar</option>
-                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Visitante</label>
-                    <select
-                      value={editForm.away_team_id}
-                      onChange={(e) => setEditForm({ ...editForm, away_team_id: e.target.value })}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm appearance-none"
-                    >
-                      <option value="">Seleccionar</option>
-                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Fecha</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Jornada</label>
                     <input
-                      type="date"
-                      value={editForm.date}
-                      onChange={e => setEditForm({ ...editForm, date: e.target.value })}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm"
+                      type="number"
+                      value={editForm.round}
+                      onChange={e => setEditForm({ ...editForm, round: parseInt(e.target.value) || 0 })}
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Hora</label>
-                    <input
-                      type="time"
-                      value={editForm.time}
-                      onChange={e => setEditForm({ ...editForm, time: e.target.value })}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm"
-                    />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Local</label>
+                      <select
+                        value={editForm.home_team_id}
+                        onChange={(e) => setEditForm({ ...editForm, home_team_id: e.target.value })}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm appearance-none"
+                      >
+                        <option value="">Seleccionar</option>
+                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Visitante</label>
+                      <select
+                        value={editForm.away_team_id}
+                        onChange={(e) => setEditForm({ ...editForm, away_team_id: e.target.value })}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm appearance-none"
+                      >
+                        <option value="">Seleccionar</option>
+                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Fecha</label>
+                      <input
+                        type="date"
+                        value={editForm.date}
+                        onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Hora</label>
+                      <input
+                        type="time"
+                        value={editForm.time}
+                        onChange={e => setEditForm({ ...editForm, time: e.target.value })}
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 mt-8">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setEditingMatch(null); setIsCreating(false); }}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveMatch}
+                      disabled={updating}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-colors shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+                    >
+                      {updating && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}
+                      {isCreating ? 'Crear' : 'Guardar'}
+                    </button>
+                  </div>
+
+                  {!isCreating && editingMatch?.status === 'scheduled' && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteMatch}
+                      disabled={updating}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
+                    >
+                      Eliminar Partido
+                    </button>
+                  )}
                 </div>
               </div>
+            </div>
+          )
+        }
 
-              <div className="flex flex-col gap-3 mt-8">
-                <div className="flex items-center gap-3">
+        {/* EXPORT MODAL */}
+        {
+          showExportModal && exportData && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-card-dark rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                  <h3 className="font-bold text-lg dark:text-white">Vista Previa</h3>
+                  <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                    <span className="material-symbols-outlined dark:text-white">close</span>
+                  </button>
+                </div>
+
+                <div className="flex-1 p-4 bg-slate-900 flex justify-center overflow-auto items-center">
+                  {/* THE DESIGN TO CAPTURE */}
+                  <div
+                    ref={exportRef}
+                    className="w-[1200px] h-[630px] bg-slate-900 text-white p-0 relative overflow-hidden shadow-2xl flex flex-col"
+                    style={{ fontFamily: 'Inter, sans-serif' }}
+                  >
+                    {/* Background Elements */}
+                    <div className="absolute top-0 left-0 w-full h-full bg-[#0a101e] z-0"></div>
+                    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/10 blur-[150px] rounded-full z-0 pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-emerald-500/5 blur-[120px] rounded-full z-0 pointer-events-none"></div>
+
+                    {/* Top Content (Header) */}
+                    <div className="relative z-10 w-full pt-8 pb-4 flex flex-col items-center shrink-0">
+                      <div className="flex items-center gap-4 mb-2">
+                        <div className="px-5 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-[0.2em]">
+                          {leagues.find(l => l.id === selectedLeagueId)?.name || 'TORNEO'}
+                        </div>
+                        <div className="h-4 w-[1px] bg-slate-700"></div>
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+                          <span className="text-xs font-bold uppercase tracking-widest">{groupedMatches[exportData.round] && groupedMatches[exportData.round][0] ? formatDate(groupedMatches[exportData.round][0].start_time) : ''}</span>
+                        </div>
+                      </div>
+
+                      <h1 className="text-5xl font-black italic tracking-tighter text-white mb-0 uppercase drop-shadow-lg flex items-center gap-3">
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Jornada</span>
+                        <span className="text-blue-500">{exportData.round}</span>
+                      </h1>
+                    </div>
+
+                    {/* Main Content (Matches Grid) */}
+                    <div className="relative z-10 flex-1 px-12 pb-8 overflow-hidden flex items-center">
+                      <div className="w-full grid grid-cols-2 gap-x-12 gap-y-3 align-content-center">
+                        {exportData.matches.map(m => (
+                          <div key={m.id} className="flex items-center bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 p-3 rounded-xl relative group">
+                            {/* Glow Bar */}
+                            {m.status === 'live' && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 to-orange-500"></div>}
+
+                            {/* Time */}
+                            <div className="w-16 flex flex-col items-center justify-center border-r border-slate-700/30 pr-3 mr-3 shrink-0">
+                              {m.status === 'finished' ? (
+                                <span className="text-xs font-black text-slate-500">FINAL</span>
+                              ) : (
+                                <>
+                                  <span className="text-lg font-bold text-white leading-none">{formatTime(m.start_time).split(':')[0]}:{formatTime(m.start_time).split(':')[1]}</span>
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase">{formatTime(m.start_time).includes('PM') ? 'PM' : 'AM'}</span>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Match Info */}
+                            <div className="flex-1 flex items-center justify-between gap-2 overflow-hidden">
+                              {/* Home */}
+                              <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+                                <span className="text-lg font-bold text-white text-right truncate uppercase">{m.home_team?.name}</span>
+                                <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+                                  {m.home_team?.shield_url ?
+                                    <img src={m.home_team.shield_url} className="w-full h-full object-contain filter drop-shadow-lg" crossOrigin="anonymous" />
+                                    : <span className="material-symbols-outlined text-2xl text-slate-600">shield</span>
+                                  }
+                                </div>
+                              </div>
+
+                              {/* Score/VS */}
+                              <div className="px-2 shrink-0">
+                                {m.status === 'scheduled' ? (
+                                  <span className="text-sm font-black text-slate-700 italic">VS</span>
+                                ) : (
+                                  <div className="flex items-center gap-2 bg-slate-900/50 px-2 py-1 rounded border border-slate-700/50">
+                                    <span className="text-xl font-bold text-white">{m.home_score}</span>
+                                    <span className="text-slate-600">:</span>
+                                    <span className="text-xl font-bold text-white">{m.away_score}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Away */}
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+                                  {m.away_team?.shield_url ?
+                                    <img src={m.away_team.shield_url} className="w-full h-full object-contain filter drop-shadow-lg" crossOrigin="anonymous" />
+                                    : <span className="material-symbols-outlined text-2xl text-slate-600">shield</span>
+                                  }
+                                </div>
+                                <span className="text-lg font-bold text-white text-left truncate uppercase">{m.away_team?.name}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Footer Branding */}
+                    <div className="relative z-10 w-full py-3 border-t border-slate-800/50 flex justify-between px-8 bg-black/20 text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+                      <span>Resultados Oficiales</span>
+                      <span>ligapremier.com</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-white dark:bg-card-dark">
                   <button
-                    type="button"
-                    onClick={() => { setEditingMatch(null); setIsCreating(false); }}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    onClick={() => setShowExportModal(false)}
+                    className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
-                    type="button"
-                    onClick={handleSaveMatch}
-                    disabled={updating}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-dark transition-colors shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+                    onClick={downloadImage}
+                    disabled={exporting}
+                    className="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2"
                   >
-                    {updating && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>}
-                    {isCreating ? 'Crear' : 'Guardar'}
+                    {exporting ? (
+                      <>
+                        <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></span>
+                        Exportando...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        Descargar Imagen
+                      </>
+                    )}
                   </button>
                 </div>
-
-                {!isCreating && editingMatch?.status === 'scheduled' && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteMatch}
-                    disabled={updating}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
-                  >
-                    Eliminar Partido
-                  </button>
-                )}
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+          )
+        }
+      </div >
+    </div >
   );
 };
 

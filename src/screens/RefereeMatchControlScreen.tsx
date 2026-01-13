@@ -375,41 +375,7 @@ const RefereeMatchControlScreen: React.FC = () => {
 
   // ... (render helpers)
 
-  // Button Logic Helper
-  const getMainButtonConfig = () => {
-    if (match.status === 'scheduled') return { label: 'Iniciar Partido', action: toggleTimer, color: 'bg-primary hover:bg-primary-dark', icon: 'play_arrow' };
 
-    // Live: Always Pause
-    if (match.status === 'live' && isRunning) return { label: 'Pausar', action: toggleTimer, color: 'bg-amber-500 hover:bg-amber-600', icon: 'pause' };
-
-    // Break/Paused Logic
-    if (match.status === 'break') {
-      // Period 1 Break = Pause in 1T -> Resume
-      if (match.current_period === 1) return { label: 'Reanudar (1T)', action: toggleTimer, color: 'bg-blue-600 hover:bg-blue-700', icon: 'play_arrow' };
-
-      // Period 2 Break = Halftime OR Pause in 2T
-      if (match.current_period === 2) {
-        // Determine if Halftime (Start of 2T) or Pause (Mid 2T)
-        const halfTimeSeconds = ((match.league?.match_duration || 90) / 2) * 60;
-        // Allow a buffer (e.g. 60s) or strict check? Strict check timer < startSeconds is safer if we reset timer?
-        // But timer is cumulative. 
-        // If timer is roughly equal to halfTimeSeconds, it's Halftime.
-        // If timer >> halfTimeSeconds, it's a Pause in 2T.
-        if (timer > halfTimeSeconds + 60) {
-          return { label: 'Reanudar (2T)', action: startSecondHalf, color: 'bg-blue-600 hover:bg-blue-700', icon: 'play_arrow' };
-        }
-        return { label: 'Iniciar 2do Tiempo', action: startSecondHalf, color: 'bg-emerald-600 hover:bg-emerald-700', icon: 'play_arrow' };
-      }
-    }
-
-    // Fallback?
-    return { label: 'Reanudar', action: toggleTimer, color: 'bg-primary hover:bg-primary-dark', icon: 'play_arrow' };
-  };
-
-
-
-  // ... (Render inside the button)
-  /* We need to replace the button JSX block */
 
   /* Event Handlers */
   const onTriggerEvent = (type: string, teamId: string, teamName: string) => {
@@ -606,7 +572,7 @@ const RefereeMatchControlScreen: React.FC = () => {
   if (loading) return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-500">Cargando...</div>;
   if (!match) return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-500">Error</div>;
 
-  const btnConfig = getMainButtonConfig();
+
 
   const currentPlayers = pendingEvent ? (pendingEvent.teamId === match.home_team_id ? homePlayers : awayPlayers) : [];
 
