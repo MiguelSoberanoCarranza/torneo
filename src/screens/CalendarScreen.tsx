@@ -231,24 +231,7 @@ const CalendarScreen: React.FC = () => {
     return new Date(dateString).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleEditClick = (match: Match) => {
-    const dateObj = new Date(match.start_time);
-    // Format YYYY-MM-DD
-    const date = dateObj.toISOString().split('T')[0];
-    // Format HH:mm
-    const time = dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    setEditingMatch(match);
-    setIsCreating(false);
-    setEditForm({
-      date,
-      time,
-      round: match.round_number || 1,
-      home_team_id: match.home_team_id,
-      away_team_id: match.away_team_id,
-      location: match.location || ''
-    });
-  };
 
   const handleCreateClick = () => {
     // Default values
@@ -639,7 +622,7 @@ const CalendarScreen: React.FC = () => {
 
       // 4. Download
       const link = document.createElement('a');
-      link.download = `jornada-${exportData.round}-premier.png`;
+      link.download = `jornada-${exportData?.round || 'tabla'}-premier.png`;
       link.href = canvas.toDataURL('image/png', 1.0); // Max quality
       link.click();
 
