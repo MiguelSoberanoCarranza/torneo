@@ -905,8 +905,8 @@ const CalendarScreen: React.FC = () => {
                         <div className="flex items-center justify-between">
                           {/* Home */}
                           <div className="flex-1 flex flex-col items-center gap-2">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden bg-cover bg-center" style={match.home_team?.shield_url ? { backgroundImage: `url("${match.home_team.shield_url}")` } : {}}>
-                              {!match.home_team?.shield_url && <span className="material-symbols-outlined text-slate-300">shield</span>}
+                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden bg-cover bg-center shrink-0 border-2 border-slate-200 dark:border-slate-800" style={match.home_team?.shield_url ? { backgroundImage: `url("${match.home_team.shield_url}")` } : {}}>
+                              {!match.home_team?.shield_url && <span className="material-symbols-outlined text-slate-300 text-3xl">shield</span>}
                             </div>
                             <span className="text-xs font-bold text-center leading-tight">{match.home_team?.name || 'Local'}</span>
                           </div>
@@ -1397,37 +1397,37 @@ const CalendarScreen: React.FC = () => {
 
                             {/* Home Team */}
                             <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
-                              <span className="text-2xl font-bold text-right leading-tight break-words uppercase max-w-[220px]" style={{ color: '#ffffff' }}>{m.home_team?.name}</span>
-                              <div className="w-20 h-20 flex items-center justify-center shrink-0 rounded-full p-1 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}>
+                              <span className="text-3xl font-black text-right leading-tight break-words uppercase max-w-[280px]" style={{ color: '#ffffff' }}>{m.home_team?.name}</span>
+                              <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.home_team?.shield_url ?
                                   <img src={m.home_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
-                                  : <span className="material-symbols-outlined text-4xl" style={{ color: '#64748b' }}>shield</span>
+                                  : <span className="material-symbols-outlined text-5xl" style={{ color: '#64748b' }}>shield</span>
                                 }
                               </div>
                             </div>
 
                             {/* VS / Center */}
-                            <div className="w-20 flex justify-center shrink-0">
+                            <div className="w-32 flex justify-center shrink-0">
                               {m.status === 'scheduled' ? (
                                 <span className="text-2xl font-black italic opacity-50" style={{ color: '#475569' }}>VS</span>
                               ) : (
-                                <div className="px-4 py-1.5 rounded-xl border flex items-center gap-1 shadow-inner" style={{ backgroundColor: 'rgba(2, 6, 23, 0.8)', borderColor: 'rgba(255,255,255,0.2)' }}>
-                                  <span className="text-2xl font-black" style={{ color: '#ffffff' }}>{m.home_score}</span>
-                                  <span className="text-lg" style={{ color: '#64748b' }}>-</span>
-                                  <span className="text-2xl font-black" style={{ color: '#ffffff' }}>{m.away_score}</span>
+                                <div className="px-6 h-16 rounded-xl border flex items-center justify-center gap-2 shadow-2xl" style={{ backgroundColor: 'rgba(2, 6, 23, 0.95)', borderColor: 'rgba(255,255,255,0.2)', lineHeight: '1' }}>
+                                  <span className="text-4xl font-black tracking-tighter" style={{ color: '#ffffff', transform: 'translateY(-2px)' }}>{m.home_score}</span>
+                                  <span className="text-2xl font-black opacity-30" style={{ color: '#ffffff' }}>-</span>
+                                  <span className="text-4xl font-black tracking-tighter" style={{ color: '#ffffff', transform: 'translateY(-2px)' }}>{m.away_score}</span>
                                 </div>
                               )}
                             </div>
 
                             {/* Away Team */}
                             <div className="flex-1 flex items-center justify-start gap-3 min-w-0">
-                              <div className="w-20 h-20 flex items-center justify-center shrink-0 rounded-full p-1 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}>
+                              <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.away_team?.shield_url ?
                                   <img src={m.away_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
-                                  : <span className="material-symbols-outlined text-4xl" style={{ color: '#64748b' }}>shield</span>
+                                  : <span className="material-symbols-outlined text-5xl" style={{ color: '#64748b' }}>shield</span>
                                 }
                               </div>
-                              <span className="text-2xl font-bold text-left leading-tight break-words uppercase max-w-[220px]" style={{ color: '#ffffff' }}>{m.away_team?.name}</span>
+                              <span className="text-3xl font-black text-left leading-tight break-words uppercase max-w-[280px]" style={{ color: '#ffffff' }}>{m.away_team?.name}</span>
                             </div>
 
                           </div>

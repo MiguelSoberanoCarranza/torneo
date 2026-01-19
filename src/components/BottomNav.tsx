@@ -34,6 +34,7 @@ const BottomNav: React.FC = () => {
   const displayItems = [
     { name: 'Inicio', icon: 'home', path: '/' },
     { name: 'Tabla', icon: 'table_chart', path: '/league-table' },
+    { name: 'Liguilla', icon: 'workspace_premium', path: '/liguilla' },
   ];
 
   if (role && ['admin', 'superadmin', 'referee'].includes(role)) {

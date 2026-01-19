@@ -427,13 +427,16 @@ const LeagueTableScreen: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {standings.map((team, index) => (
-                        <tr key={team.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-2 md:px-4 py-3 text-center font-bold text-slate-400 sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30 text-xs md:text-sm">
-                            {index + 1}
+                        <tr key={team.id}
+                          className="group border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 transition-colors"
+                          style={index < 8 ? { backgroundColor: 'rgba(59, 130, 246, 0.05)' } : {}}
+                        >
+                          <td className="px-3 py-3 text-center sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30">
+                            <span className="text-xs font-bold" style={index < 8 ? { color: '#2563eb' } : { color: '#94a3b8' }}>{index + 1}</span>
                           </td>
                           <td className="px-2 py-3 sticky left-8 md:left-10 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700/30">
                             <div className="flex items-center gap-2 md:gap-3">
-                              <div className="size-6 md:size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0 border border-slate-200 dark:border-slate-600">
+                              <div className="size-10 md:size-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0 border-2 border-slate-200 dark:border-slate-600">
                                 {team.shield_url ? <img src={team.shield_url} className="w-full h-full object-cover" /> : team.name.substring(0, 2).toUpperCase()}
                               </div>
                               <span className="font-bold text-slate-900 dark:text-white truncate max-w-[100px] md:max-w-[140px] text-xs md:text-sm">{team.name}</span>
@@ -579,8 +582,8 @@ const LeagueTableScreen: React.FC = () => {
               {/* THE DESIGN TO CAPTURE */}
               <div
                 ref={exportRef}
-                className="w-[1080px] min-h-[1350px] p-12 relative overflow-hidden shadow-2xl flex flex-col shrink-0 mx-auto"
-                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff' }}
+                className="w-[1080px] min-h-[1350px] p-12 relative overflow-hidden flex flex-col shrink-0 mx-auto"
+                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
               >
                 {/* Background Elements - Explicit Colors */}
                 <div className="absolute top-0 left-0 w-full h-full z-0" style={{ backgroundColor: '#0a101e' }}></div>
@@ -608,28 +611,28 @@ const LeagueTableScreen: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">#</th>
-                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold">Equipo</th>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">PJ</th>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">DG</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>#</th>
+                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold" style={{ color: '#94a3b8' }}>Equipo</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>PJ</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>DG</th>
                           <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20" style={{ color: '#ffffff' }}>PTS</th>
                         </tr>
                       </thead>
                       <tbody>
                         {standings.map((team, index) => (
-                          <tr key={team.id} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                            <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
-                              {index + 1}
+                          <tr key={team.id} style={{ borderBottom: index === 7 ? '3px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255,255,255,0.05)', backgroundColor: index < 8 ? 'rgba(59, 130, 246, 0.08)' : 'transparent' }}>
+                            <td className="px-4 py-4 text-center">
+                              <span className="text-xl font-black" style={index < 8 ? { color: '#60a5fa' } : { color: '#64748b' }}>{index + 1}</span>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                                <div className="w-20 h-20 flex items-center justify-center shrink-0 rounded-full p-1 border-4 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
                                   {team.shield_url ?
                                     <img src={team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
-                                    : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>shield</span>
+                                    : <span className="material-symbols-outlined text-4xl" style={{ color: '#64748b' }}>shield</span>
                                   }
                                 </div>
-                                <span className="text-xl font-bold uppercase tracking-tight text-white">{team.name}</span>
+                                <span className="text-xl font-bold uppercase tracking-tight" style={{ color: '#ffffff' }}>{team.name}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-center text-xl font-bold" style={{ color: '#cbd5e1' }}>{team.played}</td>
@@ -637,8 +640,8 @@ const LeagueTableScreen: React.FC = () => {
                               {team.gd > 0 ? `+${team.gd}` : team.gd}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <div className="inline-block px-3 py-1 rounded-lg border font-black text-xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }}>
-                                {team.points}
+                              <div className="flex items-center justify-center h-14 w-20 mx-auto rounded-lg border font-black text-3xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', lineHeight: '1', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
+                                <span style={{ transform: 'translateY(-2px)' }}>{team.points}</span>
                               </div>
                             </td>
                           </tr>
@@ -652,14 +655,14 @@ const LeagueTableScreen: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">#</th>
-                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold">Jugador</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>#</th>
+                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold" style={{ color: '#94a3b8' }}>Jugador</th>
                           <th className="px-4 py-4 text-right uppercase tracking-widest text-sm font-bold w-32" style={{ color: '#ffffff' }}>Goles</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {topScorers.map((scorer, index) => (
-                          <tr key={scorer.playerId} className="border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                        {topScorers.slice(0, 5).map((scorer, index) => (
+                          <tr key={scorer.playerId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
                               {index + 1}
                             </td>
@@ -672,7 +675,7 @@ const LeagueTableScreen: React.FC = () => {
                                   }
                                 </div>
                                 <div>
-                                  <div className="text-xl font-bold uppercase tracking-tight text-white">{scorer.name}</div>
+                                  <div className="text-xl font-bold uppercase tracking-tight" style={{ color: '#ffffff' }}>{scorer.name}</div>
                                   <div className="text-sm font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: '#94a3b8' }}>
                                     {scorer.teamShield && <img src={scorer.teamShield} className="size-4 object-contain" crossOrigin="anonymous" />}
                                     {scorer.teamName}
@@ -681,7 +684,7 @@ const LeagueTableScreen: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="inline-block px-4 py-1 rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }}>
+                              <div className="inline-block px-4 py-1 rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                                 {scorer.goals}
                               </div>
                             </td>
@@ -696,13 +699,13 @@ const LeagueTableScreen: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16">#</th>
-                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold">Jugador</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>#</th>
+                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold" style={{ color: '#94a3b8' }}>Jugador</th>
                           <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20">
-                            <div className="size-4 bg-yellow-400 rounded-sm mx-auto"></div>
+                            <div className="size-4 rounded-sm mx-auto" style={{ backgroundColor: '#facc15' }}></div>
                           </th>
                           <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20">
-                            <div className="size-4 bg-red-500 rounded-sm mx-auto"></div>
+                            <div className="size-4 rounded-sm mx-auto" style={{ backgroundColor: '#ef4444' }}></div>
                           </th>
                         </tr>
                       </thead>
@@ -721,7 +724,7 @@ const LeagueTableScreen: React.FC = () => {
                                   }
                                 </div>
                                 <div>
-                                  <div className="text-xl font-bold uppercase tracking-tight text-white">{stat.name}</div>
+                                  <div className="text-xl font-bold uppercase tracking-tight" style={{ color: '#ffffff' }}>{stat.name}</div>
                                   <div className="text-sm font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: '#94a3b8' }}>
                                     {stat.teamShield && <img src={stat.teamShield} className="size-4 object-contain" crossOrigin="anonymous" />}
                                     {stat.teamName}

@@ -9,6 +9,7 @@ import FixtureGeneratorScreen from './screens/FixtureGeneratorScreen';
 import LeagueManagementScreen from './screens/LeagueManagementScreen';
 import LeagueTableScreen from './screens/LeagueTableScreen';
 import MatchDetailsLiveScreen from './screens/MatchDetailsLiveScreen';
+import LiguillaScreen from './screens/LiguillaScreen';
 import MatchManagementScreen from './screens/MatchManagementScreen';
 import PlayerJoinScreen from './screens/PlayerJoinScreen';
 import RefereeMatchControlScreen from './screens/RefereeMatchControlScreen';
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
           { path: '/calendar', element: <CalendarScreen /> },
           { path: '/league/:id', element: <LeagueManagementScreen /> },
           { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
+          { path: '/liguilla', element: <LiguillaScreen /> },
 
           // Protected Routes
           {
