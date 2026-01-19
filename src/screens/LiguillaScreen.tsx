@@ -58,10 +58,10 @@ const LiguillaScreen: React.FC = () => {
     const [manualResult, setManualResult] = useState({ home_score: '', away_score: '', finished: true });
     const [manualPlayersHome, setManualPlayersHome] = useState<any[]>([]);
     const [manualPlayersAway, setManualPlayersAway] = useState<any[]>([]);
-    const [homeGoalscorers, setHomeGoalscorers] = useState<string[]>([]);
-    const [awayGoalscorers, setAwayGoalscorers] = useState<string[]>([]);
-    const [homeCards, setHomeCards] = useState<{ name: string, type: 'yellow_card' | 'red_card' }[]>([]);
-    const [awayCards, setAwayCards] = useState<{ name: string, type: 'yellow_card' | 'red_card' }[]>([]);
+    const [homeGoalscorers, setHomeGoalscorers] = useState<{ name: string; minute: string }[]>([]);
+    const [awayGoalscorers, setAwayGoalscorers] = useState<{ name: string; minute: string }[]>([]);
+    const [homeCards, setHomeCards] = useState<{ name: string, type: 'yellow_card' | 'red_card', minute: string }[]>([]);
+    const [awayCards, setAwayCards] = useState<{ name: string, type: 'yellow_card' | 'red_card', minute: string }[]>([]);
 
     // Round Constants
     const ROUND_QF = 100;
@@ -417,8 +417,8 @@ const LiguillaScreen: React.FC = () => {
         });
 
         // Initialize with empty first, then fill
-        setHomeGoalscorers(match.home_score ? Array(match.home_score).fill('') : []);
-        setAwayGoalscorers(match.away_score ? Array(match.away_score).fill('') : []);
+        setHomeGoalscorers(match.home_score ? Array(match.home_score).fill({ name: '', minute: '' }) : []);
+        setAwayGoalscorers(match.away_score ? Array(match.away_score).fill({ name: '', minute: '' }) : []);
         setHomeCards([]);
         setAwayCards([]);
 
@@ -443,20 +443,21 @@ const LiguillaScreen: React.FC = () => {
             id,
             event_type,
             team_id,
+            minute,
             player:players!match_events_player_id_fkey(name)
           `)
             .eq('match_id', match.id);
 
         if (events) {
             // GOALS
-            const homeGoals = events.filter(e => e.event_type === 'goal' && e.team_id === match.home_team_id).map(e => (e.player as any)?.name || '');
-            const awayGoals = events.filter(e => e.event_type === 'goal' && e.team_id === match.away_team_id).map(e => (e.player as any)?.name || '');
+            const homeGoals = events.filter(e => e.event_type === 'goal' && e.team_id === match.home_team_id).map(e => ({ name: (e.player as any)?.name || '', minute: e.minute?.toString() || '' }));
+            const awayGoals = events.filter(e => e.event_type === 'goal' && e.team_id === match.away_team_id).map(e => ({ name: (e.player as any)?.name || '', minute: e.minute?.toString() || '' }));
 
             const currentHomeScore = match.home_score || 0;
             const currentAwayScore = match.away_score || 0;
 
-            const finalHomeGoals = Array(currentHomeScore).fill('').map((_, i) => homeGoals[i] || '');
-            const finalAwayGoals = Array(currentAwayScore).fill('').map((_, i) => awayGoals[i] || '');
+            const finalHomeGoals = Array(currentHomeScore).fill(null).map((_, i) => homeGoals[i] || { name: '', minute: '' });
+            const finalAwayGoals = Array(currentAwayScore).fill(null).map((_, i) => awayGoals[i] || { name: '', minute: '' });
 
             setHomeGoalscorers(finalHomeGoals);
             setAwayGoalscorers(finalAwayGoals);
@@ -464,11 +465,11 @@ const LiguillaScreen: React.FC = () => {
             // CARDS
             const homeCardsData = events
                 .filter(e => (e.event_type === 'yellow_card' || e.event_type === 'red_card') && e.team_id === match.home_team_id)
-                .map(e => ({ name: (e.player as any)?.name || '', type: e.event_type as 'yellow_card' | 'red_card' }));
+                .map(e => ({ name: (e.player as any)?.name || '', type: e.event_type as 'yellow_card' | 'red_card', minute: e.minute?.toString() || '' }));
 
             const awayCardsData = events
                 .filter(e => (e.event_type === 'yellow_card' || e.event_type === 'red_card') && e.team_id === match.away_team_id)
-                .map(e => ({ name: (e.player as any)?.name || '', type: e.event_type as 'yellow_card' | 'red_card' }));
+                .map(e => ({ name: (e.player as any)?.name || '', type: e.event_type as 'yellow_card' | 'red_card', minute: e.minute?.toString() || '' }));
 
             setHomeCards(homeCardsData);
             setAwayCards(awayCardsData);
@@ -521,7 +522,8 @@ const LiguillaScreen: React.FC = () => {
             const currentHomePlayers = [...manualPlayersHome];
             const currentAwayPlayers = [...manualPlayersAway];
 
-            const processPlayerEvent = async (name: string, teamId: string, eventType: string, isHome: boolean) => {
+            const processPlayerEvent = async (item: { name: string, minute: string }, teamId: string, eventType: string, isHome: boolean) => {
+                const { name, minute } = item;
                 if (!name || name.trim() === '') return;
 
                 const playersList = isHome ? currentHomePlayers : currentAwayPlayers;
@@ -553,18 +555,18 @@ const LiguillaScreen: React.FC = () => {
                         player_id: playerId,
                         team_id: teamId,
                         event_type: eventType,
-                        minute: 90
+                        minute: parseInt(minute) || 90
                     });
                 }
             };
 
             // Goals
-            for (const name of homeGoalscorers) await processPlayerEvent(name, selectedMatchManual.home_team_id, 'goal', true);
-            for (const name of awayGoalscorers) await processPlayerEvent(name, selectedMatchManual.away_team_id, 'goal', false);
+            for (const item of homeGoalscorers) await processPlayerEvent(item, selectedMatchManual.home_team_id, 'goal', true);
+            for (const item of awayGoalscorers) await processPlayerEvent(item, selectedMatchManual.away_team_id, 'goal', false);
 
             // Cards
-            for (const item of homeCards) await processPlayerEvent(item.name, selectedMatchManual.home_team_id, item.type, true);
-            for (const item of awayCards) await processPlayerEvent(item.name, selectedMatchManual.away_team_id, item.type, false);
+            for (const item of homeCards) await processPlayerEvent({ name: item.name, minute: item.minute }, selectedMatchManual.home_team_id, item.type, true);
+            for (const item of awayCards) await processPlayerEvent({ name: item.name, minute: item.minute }, selectedMatchManual.away_team_id, item.type, false);
 
             showToast('Resultado y eventos guardados', 'success');
             // Refresh
@@ -931,7 +933,7 @@ const LiguillaScreen: React.FC = () => {
                                                 const count = parseInt(val) || 0;
                                                 setHomeGoalscorers(prev => {
                                                     const newArr = [...prev];
-                                                    if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
+                                                    if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill({ name: '', minute: '' })];
                                                     return newArr.slice(0, count);
                                                 });
                                             }}
@@ -950,7 +952,7 @@ const LiguillaScreen: React.FC = () => {
                                                 const count = parseInt(val) || 0;
                                                 setAwayGoalscorers(prev => {
                                                     const newArr = [...prev];
-                                                    if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill('')];
+                                                    if (count > prev.length) return [...newArr, ...Array(count - prev.length).fill({ name: '', minute: '' })];
                                                     return newArr.slice(0, count);
                                                 });
                                             }}
@@ -965,15 +967,26 @@ const LiguillaScreen: React.FC = () => {
                                         <div className="flex-1 flex flex-col gap-3">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Goleadores Local</span>
                                             {homeGoalscorers.map((scorer, idx) => (
-                                                <div key={`h-${idx}`}>
+                                                <div key={`h-${idx}`} className="flex gap-2">
                                                     <input
                                                         list="home-players"
-                                                        placeholder={`Gol ${idx + 1}`}
-                                                        className="w-full text-sm p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-slate-700 dark:text-slate-200"
-                                                        value={scorer}
+                                                        placeholder={`Jugador ${idx + 1}`}
+                                                        className="flex-1 text-sm p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-slate-700 dark:text-slate-200"
+                                                        value={scorer.name}
                                                         onChange={(e) => {
                                                             const newArr = [...homeGoalscorers];
-                                                            newArr[idx] = e.target.value;
+                                                            newArr[idx] = { ...newArr[idx], name: e.target.value };
+                                                            setHomeGoalscorers(newArr);
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Min"
+                                                        className="w-16 text-sm p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-slate-700 dark:text-slate-200"
+                                                        value={scorer.minute}
+                                                        onChange={(e) => {
+                                                            const newArr = [...homeGoalscorers];
+                                                            newArr[idx] = { ...newArr[idx], minute: e.target.value };
                                                             setHomeGoalscorers(newArr);
                                                         }}
                                                     />
@@ -987,15 +1000,26 @@ const LiguillaScreen: React.FC = () => {
                                         <div className="flex-1 flex flex-col gap-3">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Goleadores Visitante</span>
                                             {awayGoalscorers.map((scorer, idx) => (
-                                                <div key={`a-${idx}`}>
+                                                <div key={`a-${idx}`} className="flex gap-2">
                                                     <input
                                                         list="away-players"
-                                                        placeholder={`Gol ${idx + 1}`}
-                                                        className="w-full text-sm p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-slate-700 dark:text-slate-200"
-                                                        value={scorer}
+                                                        placeholder={`Jugador ${idx + 1}`}
+                                                        className="flex-1 text-sm p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-slate-700 dark:text-slate-200"
+                                                        value={scorer.name}
                                                         onChange={(e) => {
                                                             const newArr = [...awayGoalscorers];
-                                                            newArr[idx] = e.target.value;
+                                                            newArr[idx] = { ...newArr[idx], name: e.target.value };
+                                                            setAwayGoalscorers(newArr);
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Min"
+                                                        className="w-16 text-sm p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all text-slate-700 dark:text-slate-200"
+                                                        value={scorer.minute}
+                                                        onChange={(e) => {
+                                                            const newArr = [...awayGoalscorers];
+                                                            newArr[idx] = { ...newArr[idx], minute: e.target.value };
                                                             setAwayGoalscorers(newArr);
                                                         }}
                                                     />
@@ -1015,7 +1039,7 @@ const LiguillaScreen: React.FC = () => {
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tarjetas Local</span>
                                             <button
-                                                onClick={() => setHomeCards([...homeCards, { name: '', type: 'yellow_card' }])}
+                                                onClick={() => setHomeCards([...homeCards, { name: '', type: 'yellow_card', minute: '' }])}
                                                 className="p-1 px-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">add</span>
@@ -1032,6 +1056,17 @@ const LiguillaScreen: React.FC = () => {
                                                     onChange={(e) => {
                                                         const newArr = [...homeCards];
                                                         newArr[idx].name = e.target.value;
+                                                        setHomeCards(newArr);
+                                                    }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Min"
+                                                    className="w-16 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all dark:text-white"
+                                                    value={card.minute}
+                                                    onChange={(e) => {
+                                                        const newArr = [...homeCards];
+                                                        newArr[idx].minute = e.target.value;
                                                         setHomeCards(newArr);
                                                     }}
                                                 />
@@ -1054,13 +1089,12 @@ const LiguillaScreen: React.FC = () => {
                                             </div>
                                         ))}
                                     </div>
-
                                     {/* Away Cards */}
                                     <div className="flex-1 flex flex-col gap-3">
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tarjetas Visitante</span>
                                             <button
-                                                onClick={() => setAwayCards([...awayCards, { name: '', type: 'yellow_card' }])}
+                                                onClick={() => setAwayCards([...awayCards, { name: '', type: 'yellow_card', minute: '' }])}
                                                 className="p-1 px-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">add</span>
@@ -1077,6 +1111,17 @@ const LiguillaScreen: React.FC = () => {
                                                     onChange={(e) => {
                                                         const newArr = [...awayCards];
                                                         newArr[idx].name = e.target.value;
+                                                        setAwayCards(newArr);
+                                                    }}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Min"
+                                                    className="w-16 text-sm p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:outline-none transition-all dark:text-white"
+                                                    value={card.minute}
+                                                    onChange={(e) => {
+                                                        const newArr = [...awayCards];
+                                                        newArr[idx].minute = e.target.value;
                                                         setAwayCards(newArr);
                                                     }}
                                                 />
