@@ -582,18 +582,18 @@ const LeagueTableScreen: React.FC = () => {
               {/* THE DESIGN TO CAPTURE */}
               <div
                 ref={exportRef}
-                className="w-[1080px] min-h-[1350px] p-12 relative overflow-hidden flex flex-col shrink-0 mx-auto"
-                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
+                className="w-[1080px] p-12 relative overflow-hidden flex flex-col shrink-0 mx-auto"
+                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', minHeight: '1350px', height: 'auto' }}
               >
                 {/* Background Elements - Explicit Colors */}
                 <div className="absolute top-0 left-0 w-full h-full z-0" style={{ backgroundColor: '#0a101e' }}></div>
-                <div className="absolute top-0 right-0 w-[800px] h-[800px] blur-[150px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)' }}></div>
-                <div className="absolute bottom-0 left-0 w-[700px] h-[700px] blur-[120px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)' }}></div>
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(37, 99, 235, 0.1)', filter: 'blur(150px)' }}></div>
+                <div className="absolute bottom-0 left-0 w-[700px] h-[700px] rounded-full z-0 pointer-events-none" style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)', filter: 'blur(120px)' }}></div>
 
                 {/* Header */}
                 <div className="relative z-10 flex flex-col items-center justify-center mb-10 shrink-0 border-b pb-8" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                   <span className="font-bold tracking-[0.5em] uppercase text-xl mb-3 pl-[0.5em]" style={{ color: '#60a5fa' }}>Liga Premier {new Date().getFullYear()}</span>
-                  <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-4 text-center drop-shadow-lg" style={{ color: '#ffffff' }}>
+                  <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-4 text-center" style={{ color: '#ffffff' }}>
                     TABLA <span style={{ color: '#60a5fa' }}>
                       {activeTab === 'general' ? 'GENERAL' : activeTab === 'scorers' ? 'DE GOLEO' : 'FAIR PLAY'}
                     </span>
@@ -611,37 +611,47 @@ const LeagueTableScreen: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>#</th>
-                          <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold" style={{ color: '#94a3b8' }}>Equipo</th>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>PJ</th>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>DG</th>
-                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-20" style={{ color: '#ffffff' }}>PTS</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>#</th>
+                          <th className="px-2 py-4 uppercase tracking-widest text-[10px] font-bold" style={{ color: '#94a3b8' }}>Equipo</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>PJ</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>G</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>E</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>P</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>GF</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-12" style={{ color: '#94a3b8' }}>GC</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-14" style={{ color: '#94a3b8' }}>DG</th>
+                          <th className="px-2 py-4 text-center uppercase tracking-widest text-[10px] font-bold w-16" style={{ color: '#ffffff' }}>PTS</th>
                         </tr>
                       </thead>
                       <tbody>
                         {standings.map((team, index) => (
                           <tr key={team.id} style={{ borderBottom: index === 7 ? '3px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255,255,255,0.05)', backgroundColor: index < 8 ? 'rgba(59, 130, 246, 0.08)' : 'transparent' }}>
-                            <td className="px-4 py-4 text-center">
-                              <span className="text-xl font-black" style={index < 8 ? { color: '#60a5fa' } : { color: '#64748b' }}>{index + 1}</span>
+                            <td className="px-2 py-3 text-center">
+                              <span className="text-lg font-black" style={index < 8 ? { color: '#60a5fa' } : { color: '#64748b' }}>{index + 1}</span>
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-4">
-                                <div className="w-20 h-20 flex items-center justify-center shrink-0 rounded-full p-1 border-4 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
+                            <td className="px-2 py-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border-2 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                   {team.shield_url ?
-                                    <img src={team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
-                                    : <span className="material-symbols-outlined text-4xl" style={{ color: '#64748b' }}>shield</span>
+                                    <img src={team.shield_url} className="w-full h-full object-contain rounded-full" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.3))' }} crossOrigin="anonymous" />
+                                    : <span className="material-symbols-outlined text-2xl" style={{ color: '#64748b' }}>shield</span>
                                   }
                                 </div>
-                                <span className="text-xl font-bold uppercase tracking-tight" style={{ color: '#ffffff' }}>{team.name}</span>
+                                <span className="text-lg font-bold uppercase tracking-tight" style={{ color: '#ffffff' }}>{team.name}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-center text-xl font-bold" style={{ color: '#cbd5e1' }}>{team.played}</td>
-                            <td className="px-4 py-3 text-center text-xl font-bold" style={{ color: team.gd > 0 ? '#34d399' : team.gd < 0 ? '#f87171' : '#cbd5e1' }}>
+                            <td className="px-2 py-2 text-center text-lg font-bold" style={{ color: '#cbd5e1' }}>{team.played}</td>
+                            <td className="px-2 py-2 text-center text-lg font-medium" style={{ color: '#94a3b8' }}>{team.won}</td>
+                            <td className="px-2 py-2 text-center text-lg font-medium" style={{ color: '#94a3b8' }}>{team.drawn}</td>
+                            <td className="px-2 py-2 text-center text-lg font-medium" style={{ color: '#94a3b8' }}>{team.lost}</td>
+                            <td className="px-2 py-2 text-center text-base font-medium" style={{ color: '#64748b' }}>{team.gf}</td>
+                            <td className="px-2 py-2 text-center text-base font-medium" style={{ color: '#64748b' }}>{team.ga}</td>
+                            <td className="px-2 py-2 text-center text-lg font-bold" style={{ color: team.gd > 0 ? '#34d399' : team.gd < 0 ? '#f87171' : '#cbd5e1' }}>
                               {team.gd > 0 ? `+${team.gd}` : team.gd}
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <div className="flex items-center justify-center h-14 w-20 mx-auto rounded-lg border font-black text-3xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', lineHeight: '1', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
-                                <span style={{ transform: 'translateY(-2px)' }}>{team.points}</span>
+                            <td className="px-2 py-2 text-center">
+                              <div className="flex items-center justify-center h-12 w-16 mx-auto rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', lineHeight: '1' }}>
+                                <span>{team.points}</span>
                               </div>
                             </td>
                           </tr>
@@ -661,14 +671,14 @@ const LeagueTableScreen: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {topScorers.slice(0, 5).map((scorer, index) => (
+                        {topScorers.map((scorer, index) => (
                           <tr key={scorer.playerId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
                               {index + 1}
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)' }}>
                                   {scorer.photoUrl ?
                                     <img src={scorer.photoUrl} className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" />
                                     : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>person</span>
@@ -717,7 +727,7 @@ const LeagueTableScreen: React.FC = () => {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                                <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)' }}>
                                   {stat.photoUrl ?
                                     <img src={stat.photoUrl} className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" />
                                     : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>person</span>

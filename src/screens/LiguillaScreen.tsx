@@ -665,7 +665,7 @@ const LiguillaScreen: React.FC = () => {
 
         return (
             <div
-                className={`group relative bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-200 dark:border-slate-700 overflow-hidden mb-4 ${isScheduled && canEdit ? 'cursor-pointer' : ''}`}
+                className={`group relative bg-white dark:bg-slate-800 rounded-xl md:rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-slate-200 dark:border-slate-700 overflow-hidden mb-3 md:mb-4 ${isScheduled && canEdit ? 'cursor-pointer' : ''}`}
                 onClick={() => {
                     if (canEdit && isScheduled) handleMatchClick(match);
                 }}
@@ -705,10 +705,10 @@ const LiguillaScreen: React.FC = () => {
                                 #{homeTeam.rank}
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="size-10 md:size-12 rounded-full bg-slate-100 dark:bg-slate-700 p-0.5 shrink-0 overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                                <div className="size-8 md:size-12 rounded-full bg-slate-100 dark:bg-slate-700 p-0.5 shrink-0 overflow-hidden border border-slate-200 dark:border-slate-700">
                                     {homeTeam.shield_url ? <img src={homeTeam.shield_url} className="w-full h-full object-cover" /> : null}
                                 </div>
-                                <span className="font-bold text-slate-800 dark:text-white text-sm">{homeTeam.name}</span>
+                                <span className="font-bold text-slate-800 dark:text-white text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{homeTeam.name}</span>
                             </div>
                         </div>
                         <span className="text-xl font-black text-slate-900 dark:text-white">{match.home_score ?? '-'}</span>
@@ -728,10 +728,10 @@ const LiguillaScreen: React.FC = () => {
                                 #{awayTeam.rank}
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="size-10 md:size-12 rounded-full bg-slate-100 dark:bg-slate-700 p-0.5 shrink-0 overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                                <div className="size-8 md:size-12 rounded-full bg-slate-100 dark:bg-slate-700 p-0.5 shrink-0 overflow-hidden border border-slate-200 dark:border-slate-700">
                                     {awayTeam.shield_url ? <img src={awayTeam.shield_url} className="w-full h-full object-cover" /> : null}
                                 </div>
-                                <span className="font-bold text-slate-800 dark:text-white text-sm">{awayTeam.name}</span>
+                                <span className="font-bold text-slate-800 dark:text-white text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{awayTeam.name}</span>
                             </div>
                         </div>
                         <span className="text-xl font-black text-slate-900 dark:text-white">{match.away_score ?? '-'}</span>
@@ -824,12 +824,10 @@ const LiguillaScreen: React.FC = () => {
                 ) : (
                     <div ref={exportRef} className="bg-slate-50 dark:bg-slate-900 p-4 min-h-[600px]">
                         {/* Bracket View */}
-
-                        {/* Quarter Finals Section */}
                         {qfMatches.length > 0 ? (
-                            <div className="flex flex-col md:flex-row gap-8 overflow-x-auto pb-8">
+                            <div className="flex flex-nowrap flex-row gap-4 md:gap-8 overflow-x-auto pb-8 snap-x snap-mandatory scroll-smooth custom-scrollbar-hidden md:custom-scrollbar">
                                 {/* COL 1: Quarter Finals */}
-                                <div className="flex-1 min-w-[280px]">
+                                <div className="flex-none w-[280px] md:flex-1 snap-center">
                                     <h3 className="text-sm uppercase tracking-widest font-bold text-slate-400 mb-4 text-center">Cuartos de Final</h3>
                                     <div className="flex flex-col gap-4">
                                         {[
@@ -845,7 +843,7 @@ const LiguillaScreen: React.FC = () => {
                                 </div>
 
                                 {/* COL 2: Semi Finals */}
-                                <div className="flex-1 min-w-[280px] flex flex-col justify-center">
+                                <div className="flex-none w-[280px] md:flex-1 flex flex-col justify-center snap-center">
                                     {sfMatches.length > 0 ? (
                                         <>
                                             <h3 className="text-sm uppercase tracking-widest font-bold text-slate-400 mb-4 text-center">Semifinales</h3>
@@ -861,7 +859,7 @@ const LiguillaScreen: React.FC = () => {
                                 </div>
 
                                 {/* COL 3: Final */}
-                                <div className="flex-1 min-w-[280px] flex flex-col justify-center">
+                                <div className="flex-none w-[280px] md:flex-1 flex flex-col justify-center snap-center">
                                     {finalMatch ? (
                                         <>
                                             <h3 className="text-sm uppercase tracking-widest font-bold text-yellow-500 mb-4 text-center">Gran Final</h3>
