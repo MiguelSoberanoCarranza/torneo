@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 interface Team {
     id: string;
@@ -624,15 +624,14 @@ const LiguillaScreen: React.FC = () => {
         if (!exportRef.current) return;
         setExporting(true);
         try {
-            const canvas = await html2canvas(exportRef.current, {
-                useCORS: true,
-                allowTaint: true,
+            const dataUrl = await toPng(exportRef.current, {
+                cacheBust: true,
                 backgroundColor: '#0f172a',
-                scale: 2,
+                pixelRatio: 2,
             });
             const link = document.createElement('a');
             link.download = `liguilla-${currentLeagueName}.png`;
-            link.href = canvas.toDataURL('image/png');
+            link.href = dataUrl;
             link.click();
             showToast("Imagen descargada", "success");
         } catch (error) {
@@ -682,7 +681,11 @@ const LiguillaScreen: React.FC = () => {
                                 className="text-blue-400 hover:text-blue-500 text-[10px] font-bold p-1 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                                 title="Editar Resultado"
                             >
-                                <span className="material-symbols-outlined text-base">edit</span>
+                                <span title="Editar Resultado">
+                                    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor" className="text-blue-400 hover:text-blue-500 w-5 h-5">
+                                        <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 17l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" />
+                                    </svg>
+                                </span>
                             </button>
                             {isFinished && (
                                 <button
@@ -690,7 +693,11 @@ const LiguillaScreen: React.FC = () => {
                                     className="text-red-400 hover:text-red-500 text-[10px] font-bold p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                     title="Reiniciar"
                                 >
-                                    <span className="material-symbols-outlined text-base">refresh</span>
+                                    <span title="Reiniciar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor" className="text-red-400 hover:text-red-500 w-5 h-5">
+                                            <path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v240H560v-80h135q-44-51-103.5-80.5T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z" />
+                                        </svg>
+                                    </span>
                                 </button>
                             )}
                         </div>
@@ -822,7 +829,7 @@ const LiguillaScreen: React.FC = () => {
                         <p className="text-slate-400 text-sm">Se necesitan 8 equipos clasificados para iniciar la liguilla.</p>
                     </div>
                 ) : (
-                    <div ref={exportRef} className="bg-slate-50 dark:bg-slate-900 p-4 min-h-[600px]">
+                    <div ref={exportRef} className="min-w-[800px] bg-[#0f172a] p-8 text-white">
                         {/* Bracket View */}
                         {qfMatches.length > 0 ? (
                             <div className="flex flex-nowrap flex-row gap-4 md:gap-8 overflow-x-auto pb-8 snap-x snap-mandatory scroll-smooth custom-scrollbar-hidden md:custom-scrollbar">

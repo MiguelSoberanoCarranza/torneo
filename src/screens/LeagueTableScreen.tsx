@@ -567,7 +567,10 @@ const LeagueTableScreen: React.FC = () => {
                     </span>
                   </h1>
                   <div className="px-8 py-3 rounded-full border text-xl font-bold uppercase tracking-widest flex items-center gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }}>
-                    <span className="material-symbols-outlined text-2xl">trophy</span>
+                    {/* SVG Replacement for Trophy Icon to ensure rendering in export */}
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor" className="w-6 h-6">
+                      <path d="M280-120v-80h400v80H280Zm80-160v-80h240v80H360Zm40-160q-68-15-114-68t-46-123v-109l240-90 240 90v109q0 70-46 123t-114 68v160h-160v-160Zm-200-80h80q0-54 30-97.5t80-60.5l-110-41v97q0 39-21.5 73.5T200-440Zm560 0q-58-29-79.5-63.5T659-577v-97l-110 41q50 17 80.5 60.5T660-475h100q0 30-8 55.5T720-372l32 94q38-27 63-63.5t25-83.5h-80Z" />
+                    </svg>
                     <span className="leading-none pt-[3px]">{currentLeagueName.toUpperCase()}</span>
                   </div>
                 </div>
@@ -649,7 +652,9 @@ const LeagueTableScreen: React.FC = () => {
                                 <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)' }}>
                                   {scorer.photoUrl ?
                                     <img src={scorer.photoUrl} className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" />
-                                    : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>person</span>
+                                    : <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor" className="w-8 h-8 text-slate-500">
+                                      <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-32q0-34 17.5-62.5T224-304q55-27 109.5-41.5T480-360q58 0 113.5 14.5T703-304q31 17 48.5 45.5T769-192v32H160Z" />
+                                    </svg>
                                   }
                                 </div>
                                 <div>
@@ -700,7 +705,9 @@ const LeagueTableScreen: React.FC = () => {
                                 <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border shadow-inner overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.05)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)' }}>
                                   {stat.photoUrl ?
                                     <img src={stat.photoUrl} className="w-full h-full object-cover rounded-full" crossOrigin="anonymous" />
-                                    : <span className="material-symbols-outlined text-3xl" style={{ color: '#64748b' }}>person</span>
+                                    : <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor" className="w-8 h-8 text-slate-500">
+                                      <path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-32q0-34 17.5-62.5T224-304q55-27 109.5-41.5T480-360q58 0 113.5 14.5T703-304q31 17 48.5 45.5T769-192v32H160Z" />
+                                    </svg>
                                   }
                                 </div>
                                 <div>
@@ -724,7 +731,11 @@ const LeagueTableScreen: React.FC = () => {
                 {/* Footer */}
                 <div className="relative z-10 w-full mt-12 border-t pt-6 flex justify-between px-4 pb-4" style={{ borderColor: 'rgba(255,255,255,0.05)', opacity: 0.6 }}>
                   <span className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2" style={{ color: '#94a3b8' }}>
-                    <span className="material-symbols-outlined text-lg">verified</span> Resultados Oficiales
+                    {/* SVG Replacement for Verified Icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor" className="w-5 h-5 text-blue-500">
+                      <path d="m344-60-76-128-144-32 14-148-98-112 98-112-14-148 144-32 76-128 136 58 136-58 76 128 144 32-14 148 98 112-98 112 14 148-144 32-76 128-136-58-136 58Zm34-102 102-44 104 44 56-96 110-26-10-112 74-84-74-86 10-112-110-24-58-96-102 44-102-44-56 96-110 24 10 112-74 86 74 84-10 114 110 24 56 96Zm102-318Zm-42 142 226-226-56-58-170 170-86-84-56 56 142 142Z" />
+                    </svg>
+                    Resultados Oficiales
                   </span>
                   <span className="text-sm font-bold uppercase tracking-[0.3em]" style={{ color: '#94a3b8' }}>torneo-two.vercel.app</span>
                 </div>

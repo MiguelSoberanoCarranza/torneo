@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 interface Match {
   id: string;
@@ -606,12 +606,10 @@ const CalendarScreen: React.FC = () => {
       ]);
 
       // 2. Capture
-      const canvas = await html2canvas(element, {
-        useCORS: true,
-        allowTaint: true,
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
         backgroundColor: '#0f172a', // Match bg color
-        logging: false,
-        scale: 2, // 2x resolution for high quality
+        pixelRatio: 2, // 2x resolution for high quality
       });
 
       // 3. Restore original images
@@ -625,7 +623,7 @@ const CalendarScreen: React.FC = () => {
       // 4. Download
       const link = document.createElement('a');
       link.download = `jornada-${exportData?.round || 'tabla'}-premier.png`;
-      link.href = canvas.toDataURL('image/png', 1.0); // Max quality
+      link.href = dataUrl;
       link.click();
 
       showToast("Imagen descargada correctamente", "success");
@@ -1397,8 +1395,8 @@ const CalendarScreen: React.FC = () => {
                   {/* THE DESIGN TO CAPTURE */}
                   <div
                     ref={exportRef}
-                    className="w-[1080px] h-[1350px] p-12 relative overflow-hidden shadow-2xl flex flex-col shrink-0 mx-auto"
-                    style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff' }}
+                    className="min-w-[800px] relative overflow-hidden flex flex-col shrink-0"
+                    style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff', minHeight: 'auto', height: 'auto' }}
                   >
                     {/* Background Elements - Explicit Colors */}
                     <div className="absolute top-0 left-0 w-full h-full z-0" style={{ backgroundColor: '#0a101e' }}></div>
@@ -1412,7 +1410,10 @@ const CalendarScreen: React.FC = () => {
                         Jornada <span style={{ color: '#60a5fa' }}>{exportData.round}</span>
                       </h1>
                       <div className="px-8 py-3 rounded-full border text-xl font-bold uppercase tracking-widest flex items-center gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }}>
-                        <span className="material-symbols-outlined text-2xl">calendar_today</span>
+                        {/* SVG Replacement for Calendar Icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor" className="w-6 h-6">
+                          <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm0 0v-80 80Zm280 240q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-160 0q-17 0-28.5-11.5T280-440q0-17 11.5-28.5T320-480q17 0 28.5 11.5T360-440q0 17-11.5 28.5T320-400Zm320 0q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-160 0q-17 0-28.5-11.5T280-280q0-17 11.5-28.5T320-320q17 0 28.5 11.5T360-280q0 17-11.5 28.5T320-240Zm320 0q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z" />
+                        </svg>
                         <span className="leading-none pt-[3px]">{groupedMatches[exportData.round] && groupedMatches[exportData.round][0] ? formatDate(groupedMatches[exportData.round][0].start_time).toUpperCase() : 'FECHA'}</span>
                       </div>
                     </div>
@@ -1447,7 +1448,9 @@ const CalendarScreen: React.FC = () => {
                               <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.home_team?.shield_url ?
                                   <img src={m.home_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
-                                  : <span className="material-symbols-outlined text-5xl" style={{ color: '#64748b' }}>shield</span>
+                                  : <svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48" fill="currentColor" className="text-slate-500 w-12 h-12">
+                                    <path d="M480-80q-137-56-218.5-177T180-520v-240l300-113 300 113v240q0 121-81.5 242T480-80Zm0-84q106-49 173-149t67-207v-189l-240-90-240 90v189q0 107 67 207t173 149Zm0-356Z" />
+                                  </svg>
                                 }
                               </div>
                             </div>
@@ -1470,7 +1473,9 @@ const CalendarScreen: React.FC = () => {
                               <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.away_team?.shield_url ?
                                   <img src={m.away_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
-                                  : <span className="material-symbols-outlined text-5xl" style={{ color: '#64748b' }}>shield</span>
+                                  : <svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48" fill="currentColor" className="text-slate-500 w-12 h-12">
+                                    <path d="M480-80q-137-56-218.5-177T180-520v-240l300-113 300 113v240q0 121-81.5 242T480-80Zm0-84q106-49 173-149t67-207v-189l-240-90-240 90v189q0 107 67 207t173 149Zm0-356Z" />
+                                  </svg>
                                 }
                               </div>
                               <span className="text-3xl font-black text-left leading-tight break-words uppercase max-w-[280px]" style={{ color: '#ffffff' }}>{m.away_team?.name}</span>
@@ -1484,7 +1489,11 @@ const CalendarScreen: React.FC = () => {
                     {/* Footer */}
                     <div className="relative z-10 w-full mt-auto border-t pt-6 flex justify-between px-4 pb-4" style={{ borderColor: 'rgba(255,255,255,0.05)', opacity: 0.6 }}>
                       <span className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2" style={{ color: '#94a3b8' }}>
-                        <span className="material-symbols-outlined text-lg">verified</span> Resultados Oficiales
+                        {/* SVG Replacement for Verified Icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" width="20" fill="currentColor" className="w-5 h-5 text-blue-500">
+                          <path d="m344-60-76-128-144-32 14-148-98-112 98-112-14-148 144-32 76-128 136 58 136-58 76 128 144 32-14 148 98 112-98 112 14 148-144 32-76 128-136-58-136 58Zm34-102 102-44 104 44 56-96 110-26-10-112 74-84-74-86 10-112-110-24-58-96-102 44-102-44-56 96-110 24 10 112-74 86 74 84-10 114 110 24 56 96Zm102-318Zm-42 142 226-226-56-58-170 170-86-84-56 56 142 142Z" />
+                        </svg>
+                        Resultados Oficiales
                       </span>
                       <span className="text-sm font-bold uppercase tracking-[0.3em]" style={{ color: '#94a3b8' }}>torneo-two.vercel.app</span>
                     </div>
