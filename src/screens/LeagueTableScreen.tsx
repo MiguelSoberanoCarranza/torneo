@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import html2canvas from 'html2canvas';
-
+import { toPng } from 'html-to-image';
 import { supabase } from '../supabaseClient';
-
 import { useToast } from '../context/ToastContext';
 
 interface TopScorer {
@@ -269,51 +267,21 @@ const LeagueTableScreen: React.FC = () => {
 
     setExporting(true);
     try {
-      const element = exportRef.current;
-      const images = Array.from(element.querySelectorAll('img'));
-      const promises = images.map(img => {
-        return new Promise<void>((resolve) => {
-          if (img.src.startsWith('data:')) { resolve(); return; }
-          const originalSrc = img.src;
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = image.naturalWidth;
-            canvas.height = image.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(image, 0, 0);
-              img.src = canvas.toDataURL('image/png');
-              img.dataset.originalSrc = originalSrc;
-            }
-            resolve();
-          };
-          image.onerror = () => { resolve(); };
-          image.src = originalSrc + '?t=' + new Date().getTime();
-        });
-      });
+      // PRE-CARGA DE IMÁGENES:
+      // html-to-image maneja mejor pero sigue siendo buena práctica pre-cargar y cachear
+      // para asegurar que todo esté listo.
+      // Sin embargo, toPng suele usar fetch interno. Vamos a intentar directo primero.
+      // Si fallara, se podría usar la técnica de 'cacheBust: true'
 
-      await Promise.race([Promise.all(promises), new Promise(resolve => setTimeout(resolve, 5000))]);
-
-      const canvas = await html2canvas(element, {
-        useCORS: true,
-        allowTaint: true,
+      const dataUrl = await toPng(exportRef.current, {
+        cacheBust: true,
         backgroundColor: '#0f172a',
-        logging: false,
-        scale: 2,
-      });
-
-      images.forEach(img => {
-        if (img.dataset.originalSrc) {
-          img.src = img.dataset.originalSrc;
-          delete img.dataset.originalSrc;
-        }
+        pixelRatio: 2, // Mejor calidad
       });
 
       const link = document.createElement('a');
       link.download = `tabla-general-${currentLeagueName.replace(/\s+/g, '-').toLowerCase()}.png`;
-      link.href = canvas.toDataURL('image/png', 1.0);
+      link.href = dataUrl;
       link.click();
 
       showToast("Imagen descargada correctamente", "success");
@@ -582,8 +550,8 @@ const LeagueTableScreen: React.FC = () => {
               {/* THE DESIGN TO CAPTURE */}
               <div
                 ref={exportRef}
-                className="w-[1080px] p-12 relative overflow-hidden flex flex-col shrink-0 mx-auto"
-                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', minHeight: '1350px', height: 'auto' }}
+                className="min-w-[800px] relative overflow-hidden flex flex-col shrink-0"
+                style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#0f172a', color: '#ffffff', minHeight: 'auto', height: 'auto' }}
               >
                 {/* Background Elements - Explicit Colors */}
                 <div className="absolute top-0 left-0 w-full h-full z-0" style={{ backgroundColor: '#0a101e' }}></div>
@@ -667,11 +635,11 @@ const LeagueTableScreen: React.FC = () => {
                         <tr className="border-b" style={{ borderColor: 'rgba(255,255,255,0.1)', color: '#94a3b8' }}>
                           <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-16" style={{ color: '#94a3b8' }}>#</th>
                           <th className="px-4 py-4 uppercase tracking-widest text-sm font-bold" style={{ color: '#94a3b8' }}>Jugador</th>
-                          <th className="px-4 py-4 text-right uppercase tracking-widest text-sm font-bold w-32" style={{ color: '#ffffff' }}>Goles</th>
+                          <th className="px-4 py-4 text-center uppercase tracking-widest text-sm font-bold w-32" style={{ color: '#ffffff' }}>Goles</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {topScorers.map((scorer, index) => (
+                        {topScorers.slice(0, 5).map((scorer, index) => (
                           <tr key={scorer.playerId} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <td className="px-4 py-3 text-center font-bold text-2xl" style={{ color: index < 3 ? '#fbbf24' : '#94a3b8' }}>
                               {index + 1}
@@ -693,9 +661,11 @@ const LeagueTableScreen: React.FC = () => {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="inline-block px-4 py-1 rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                                {scorer.goals}
+                            <td className="px-4 py-3">
+                              <div className="flex justify-center items-center">
+                                <div className="px-4 py-1 rounded-lg border font-black text-2xl text-white" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                                  {scorer.goals}
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -752,7 +722,7 @@ const LeagueTableScreen: React.FC = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="relative z-10 w-full mt-auto border-t pt-6 flex justify-between px-4 pb-4" style={{ borderColor: 'rgba(255,255,255,0.05)', opacity: 0.6 }}>
+                <div className="relative z-10 w-full mt-12 border-t pt-6 flex justify-between px-4 pb-4" style={{ borderColor: 'rgba(255,255,255,0.05)', opacity: 0.6 }}>
                   <span className="text-sm font-bold uppercase tracking-[0.3em] flex items-center gap-2" style={{ color: '#94a3b8' }}>
                     <span className="material-symbols-outlined text-lg">verified</span> Resultados Oficiales
                   </span>
