@@ -426,12 +426,22 @@ const CalendarScreen: React.FC = () => {
     isSubmittingRef.current = true;
     setUpdating(true);
     const updates: any = {
-      home_score: parseInt(manualResult.home_score) || 0,
-      away_score: parseInt(manualResult.away_score) || 0
+      home_score: parseInt(manualResult.home_score),
+      away_score: parseInt(manualResult.away_score)
     };
 
-    if (manualResult.finished) {
+    // Special Case: -1, -1 means double default loss
+    if (manualResult.home_score === '-1' && manualResult.away_score === '-1') {
+      updates.home_score = -1;
+      updates.away_score = -1;
       updates.status = 'finished';
+    } else {
+      // Normal behavior: parse or default to 0
+      updates.home_score = parseInt(manualResult.home_score) || 0;
+      updates.away_score = parseInt(manualResult.away_score) || 0;
+      if (manualResult.finished) {
+        updates.status = 'finished';
+      }
     }
 
     // 1. Update Match
@@ -916,7 +926,7 @@ const CalendarScreen: React.FC = () => {
                             {match.status === 'finished' || match.status === 'live' || match.status === 'break' ? (
                               <div className="flex flex-col items-center">
                                 <div className="text-2xl font-black tracking-tight font-mono">
-                                  {match.home_score} - {match.away_score}
+                                  {match.home_score === -1 && match.away_score === -1 ? 'P - P' : `${match.home_score} - ${match.away_score}`}
                                 </div>
 
                                 {/* Finished Actions: Reset and Edit */}
@@ -1053,6 +1063,7 @@ const CalendarScreen: React.FC = () => {
                         }}
                       />
                     </div>
+
                   </div>
 
                   {/* Goalscorers Inputs */}
@@ -1250,6 +1261,20 @@ const CalendarScreen: React.FC = () => {
                     />
                     <label htmlFor="markFinished" className="font-medium text-slate-900 dark:text-white">Marcar como Finalizado</label>
                   </div>
+
+                  <button
+                    onClick={() => {
+                      setManualResult({ home_score: '-1', away_score: '-1', finished: true });
+                      setHomeGoalscorers([]);
+                      setAwayGoalscorers([]);
+                      setHomeCards([]);
+                      setAwayCards([]);
+                    }}
+                    className="w-full mt-4 mb-6 py-3 px-4 rounded-xl border-2 border-dashed border-red-200 dark:border-red-900/30 text-red-500 font-bold text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">block</span>
+                    Ambos Perdieron (Default)
+                  </button>
                 </div>
 
                 {/* Footer */}
@@ -1461,9 +1486,13 @@ const CalendarScreen: React.FC = () => {
                                 <span className="text-2xl font-black italic opacity-50" style={{ color: '#475569' }}>VS</span>
                               ) : (
                                 <div className="px-6 h-16 rounded-xl border flex items-center justify-center gap-2 shadow-2xl" style={{ backgroundColor: 'rgba(2, 6, 23, 0.95)', borderColor: 'rgba(255,255,255,0.2)', lineHeight: '1' }}>
-                                  <span className="text-4xl font-black tracking-tighter" style={{ color: '#ffffff', transform: 'translateY(-2px)' }}>{m.home_score}</span>
+                                  <span className="text-4xl font-black tracking-tighter" style={{ color: m.home_score === -1 ? '#ef4444' : '#ffffff', transform: 'translateY(-2px)' }}>
+                                    {m.home_score === -1 ? 'P' : m.home_score}
+                                  </span>
                                   <span className="text-2xl font-black opacity-30" style={{ color: '#ffffff' }}>-</span>
-                                  <span className="text-4xl font-black tracking-tighter" style={{ color: '#ffffff', transform: 'translateY(-2px)' }}>{m.away_score}</span>
+                                  <span className="text-4xl font-black tracking-tighter" style={{ color: m.away_score === -1 ? '#ef4444' : '#ffffff', transform: 'translateY(-2px)' }}>
+                                    {m.away_score === -1 ? 'P' : m.away_score}
+                                  </span>
                                 </div>
                               )}
                             </div>

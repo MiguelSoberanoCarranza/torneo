@@ -157,13 +157,19 @@ const LiguillaScreen: React.FC = () => {
                             const homeScore = match.home_score ?? 0;
                             const awayScore = match.away_score ?? 0;
                             played++;
-                            const teamScore = isHome ? homeScore : awayScore;
-                            const opponentScore = isHome ? awayScore : homeScore;
-                            gf += teamScore;
-                            ga += opponentScore;
-                            if (teamScore > opponentScore) won++;
-                            else if (teamScore === opponentScore) drawn++;
-                            else lost++;
+
+                            // Special Case: Double Default (-1, -1)
+                            if (homeScore === -1 && awayScore === -1) {
+                                lost++;
+                            } else {
+                                const teamScore = isHome ? homeScore : awayScore;
+                                const opponentScore = isHome ? awayScore : homeScore;
+                                gf += Math.max(0, teamScore);
+                                ga += Math.max(0, opponentScore);
+                                if (teamScore > opponentScore) won++;
+                                else if (teamScore === opponentScore) drawn++;
+                                else lost++;
+                            }
                         }
                     });
                     return {
@@ -483,13 +489,19 @@ const LiguillaScreen: React.FC = () => {
 
         isSubmittingRef.current = true;
         setUpdating(true);
-        const updates: any = {
-            home_score: parseInt(manualResult.home_score) || 0,
-            away_score: parseInt(manualResult.away_score) || 0
-        };
+        const updates: any = {};
 
-        if (manualResult.finished) {
+        // Special Case: Double Default (-1, -1)
+        if (manualResult.home_score === '-1' && manualResult.away_score === '-1') {
+            updates.home_score = -1;
+            updates.away_score = -1;
             updates.status = 'finished';
+        } else {
+            updates.home_score = parseInt(manualResult.home_score) || 0;
+            updates.away_score = parseInt(manualResult.away_score) || 0;
+            if (manualResult.finished) {
+                updates.status = 'finished';
+            }
         }
 
         // 1. Update Match
@@ -718,7 +730,9 @@ const LiguillaScreen: React.FC = () => {
                                 <span className="font-bold text-slate-800 dark:text-white text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{homeTeam.name}</span>
                             </div>
                         </div>
-                        <span className="text-xl font-black text-slate-900 dark:text-white">{match.home_score ?? '-'}</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white">
+                            {match.home_score === -1 && match.away_score === -1 ? 'P' : (match.home_score ?? '-')}
+                        </span>
                     </div>
 
                     {/* VS / Divider */}
@@ -741,7 +755,9 @@ const LiguillaScreen: React.FC = () => {
                                 <span className="font-bold text-slate-800 dark:text-white text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{awayTeam.name}</span>
                             </div>
                         </div>
-                        <span className="text-xl font-black text-slate-900 dark:text-white">{match.away_score ?? '-'}</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white">
+                            {match.home_score === -1 && match.away_score === -1 ? 'P' : (match.away_score ?? '-')}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1157,6 +1173,21 @@ const LiguillaScreen: React.FC = () => {
                                     </div>
                                     <label className="font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none">Marcar partido como Finalizado</label>
                                 </div>
+
+                                <button
+                                    onClick={() => {
+                                        setManualResult({ home_score: '-1', away_score: '-1', finished: true });
+                                        setHomeGoalscorers([]);
+                                        setAwayGoalscorers([]);
+                                        setHomeCards([]);
+                                        setAwayCards([]);
+                                    }}
+                                    className="w-full mt-4 mb-6 py-3 px-4 rounded-xl border-2 border-dashed border-red-200 dark:border-red-900/30 text-red-500 font-bold text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">block</span>
+                                    Ambos Perdieron (Default)
+                                </button>
+
                             </div>
 
                             {/* Footer */}

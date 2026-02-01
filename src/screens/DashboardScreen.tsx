@@ -486,7 +486,11 @@ const DashboardScreen: React.FC = () => {
                       {/* Score */}
                       <div className="flex flex-col items-center px-4">
                         <div className="text-5xl font-display font-black tracking-widest tabular-nums leading-none mb-1">
-                          {match.home_score}<span className="text-slate-500 mx-1">-</span>{match.away_score}
+                          {match.home_score === -1 && match.away_score === -1 ? (
+                            <span className="text-3xl text-red-500">P<span className="text-slate-500 mx-1">-</span>P</span>
+                          ) : (
+                            <>{match.home_score}<span className="text-slate-500 mx-1">-</span>{match.away_score}</>
+                          )}
                         </div>
                         <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">En Vivo</div>
                       </div>
@@ -618,7 +622,7 @@ const DashboardScreen: React.FC = () => {
                       </span>
                     </div>
                     <span className={`text-sm ${match.home_score > match.away_score ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
-                      {match.home_score}
+                      {match.home_score === -1 ? 'P' : match.home_score}
                     </span>
                   </div>
 
@@ -633,7 +637,7 @@ const DashboardScreen: React.FC = () => {
                       </span>
                     </div>
                     <span className={`text-sm ${match.away_score > match.home_score ? 'font-black text-slate-900 dark:text-white' : 'font-medium text-slate-600 dark:text-slate-400'}`}>
-                      {match.away_score}
+                      {match.away_score === -1 ? 'P' : match.away_score}
                     </span>
                   </div>
                 </div>

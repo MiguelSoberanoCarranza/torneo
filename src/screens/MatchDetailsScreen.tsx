@@ -156,9 +156,9 @@ const MatchDetailsScreen = () => {
                             {/* Score */}
                             <div className="flex flex-col items-center justify-center">
                                 <div className="text-5xl font-extrabold tracking-tighter text-slate-900 dark:text-white flex items-center gap-2">
-                                    <span>{match.home_score}</span>
+                                    <span>{match.home_score === -1 ? 'P' : match.home_score}</span>
                                     <span className="text-slate-300 dark:text-slate-600 text-3xl">-</span>
-                                    <span>{match.away_score}</span>
+                                    <span>{match.away_score === -1 ? 'P' : match.away_score}</span>
                                 </div>
                             </div>
                             {/* Team B */}

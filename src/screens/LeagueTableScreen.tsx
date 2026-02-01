@@ -163,15 +163,23 @@ const LeagueTableScreen: React.FC = () => {
 
               if ((isHome && homeScore !== null && awayScore !== null) || (isAway && homeScore !== null && awayScore !== null)) {
                 played++;
-                const teamScore = isHome ? homeScore : awayScore;
-                const opponentScore = isHome ? awayScore : homeScore;
 
-                gf += teamScore;
-                ga += opponentScore;
+                // Special Case: Double Default (-1, -1)
+                if (homeScore === -1 && awayScore === -1) {
+                  lost++;
+                  // No goals added for double default
+                } else {
+                  const teamScore = isHome ? homeScore : awayScore;
+                  const opponentScore = isHome ? awayScore : homeScore;
 
-                if (teamScore > opponentScore) won++;
-                else if (teamScore === opponentScore) drawn++;
-                else lost++;
+                  // Ensure we don't add negative scores if somehow they occur
+                  gf += Math.max(0, teamScore);
+                  ga += Math.max(0, opponentScore);
+
+                  if (teamScore > opponentScore) won++;
+                  else if (teamScore === opponentScore) drawn++;
+                  else lost++;
+                }
               }
             }
           });

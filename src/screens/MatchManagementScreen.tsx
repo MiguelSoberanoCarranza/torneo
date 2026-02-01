@@ -86,13 +86,19 @@ const MatchManagementScreen: React.FC = () => {
   const saveManualResult = async () => {
     if (!selectedMatch) return;
 
-    const updates: any = {
-      home_score: parseInt(manualResult.home_score) || 0,
-      away_score: parseInt(manualResult.away_score) || 0
-    };
+    const updates: any = {};
 
-    if (manualResult.finished) {
+    // Special Case: -1, -1 means double default loss
+    if (manualResult.home_score === '-1' && manualResult.away_score === '-1') {
+      updates.home_score = -1;
+      updates.away_score = -1;
       updates.status = 'finished';
+    } else {
+      updates.home_score = parseInt(manualResult.home_score) || 0;
+      updates.away_score = parseInt(manualResult.away_score) || 0;
+      if (manualResult.finished) {
+        updates.status = 'finished';
+      }
     }
 
     const { error } = await supabase
@@ -166,7 +172,9 @@ const MatchManagementScreen: React.FC = () => {
           filteredMatches.map(match => (
             <div key={match.id} className="bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-xl p-3 flex items-center gap-3 shadow-sm">
               <div className="flex flex-col items-center min-w-[3rem]">
-                <span className="text-xs font-bold text-primary">{match.status === 'live' ? 'LIVE' : match.status === 'finished' ? 'FT' : match.home_score + '-' + match.away_score}</span>
+                <span className="text-xs font-bold text-primary">
+                  {match.status === 'live' ? 'LIVE' : match.status === 'finished' ? (match.home_score === -1 && match.away_score === -1 ? 'P-P' : 'FT') : match.home_score + '-' + match.away_score}
+                </span>
                 {match.status === 'live' && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse mt-1"></span>}
               </div>
               <div className="flex-1">
@@ -174,13 +182,13 @@ const MatchManagementScreen: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm">{match.home_team?.name}</span>
                   </div>
-                  <span className="font-bold">{match.home_score}</span>
+                  <span className="font-bold">{match.home_score === -1 ? 'P' : match.home_score}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm">{match.away_team?.name}</span>
                   </div>
-                  <span className="font-bold">{match.away_score}</span>
+                  <span className="font-bold">{match.away_score === -1 ? 'P' : match.away_score}</span>
                 </div>
                 <div className="mt-2 text-xs text-gray-500 flex justify-between items-center">
                   <span>{formatDate(match.start_time)}</span>
@@ -238,6 +246,17 @@ const MatchManagementScreen: React.FC = () => {
               />
               <label htmlFor="markFinished" className="font-medium">Marcar como Finalizado</label>
             </div>
+
+            <button
+              onClick={() => {
+                setManualResult({ home_score: '-1', away_score: '-1', finished: true });
+              }}
+              className="w-full mb-6 py-3 px-4 rounded-xl border-2 border-dashed border-red-200 dark:border-red-900/30 text-red-500 font-bold text-xs uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">block</span>
+              Ambos Perdieron (Default)
+            </button>
+
 
             <div className="flex gap-2">
               <button
