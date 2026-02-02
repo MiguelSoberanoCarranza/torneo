@@ -1456,7 +1456,7 @@ const CalendarScreen: React.FC = () => {
                               <span className="text-3xl font-black text-right leading-tight break-words uppercase max-w-[280px]" style={{ color: '#ffffff' }}>{m.home_team?.name}</span>
                               <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.home_team?.shield_url ?
-                                  <img src={m.home_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
+                                  <img src={m.home_team.shield_url} className="w-full h-full object-contain rounded-full" crossOrigin="anonymous" />
                                   : <svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48" fill="currentColor" className="text-slate-500 w-12 h-12">
                                     <path d="M480-80q-137-56-218.5-177T180-520v-240l300-113 300 113v240q0 121-81.5 242T480-80Zm0-84q106-49 173-149t67-207v-189l-240-90-240 90v189q0 107 67 207t173 149Zm0-356Z" />
                                   </svg>
@@ -1485,7 +1485,7 @@ const CalendarScreen: React.FC = () => {
                             <div className="flex-1 flex items-center justify-start gap-3 min-w-0">
                               <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.away_team?.shield_url ?
-                                  <img src={m.away_team.shield_url} className="w-full h-full object-contain filter drop-shadow-md rounded-full" crossOrigin="anonymous" />
+                                  <img src={m.away_team.shield_url} className="w-full h-full object-contain rounded-full" crossOrigin="anonymous" />
                                   : <svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48" fill="currentColor" className="text-slate-500 w-12 h-12">
                                     <path d="M480-80q-137-56-218.5-177T180-520v-240l300-113 300 113v240q0 121-81.5 242T480-80Zm0-84q106-49 173-149t67-207v-189l-240-90-240 90v189q0 107 67 207t173 149Zm0-356Z" />
                                   </svg>

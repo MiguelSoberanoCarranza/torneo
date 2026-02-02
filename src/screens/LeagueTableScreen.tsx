@@ -662,7 +662,7 @@ const LeagueTableScreen: React.FC = () => {
                               <div className="flex items-center gap-3">
                                 <div className="w-14 h-14 flex items-center justify-center shrink-0 rounded-full p-0.5 border-2 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                   {team.shield_url ?
-                                    <img src={team.shield_url} className="w-full h-full object-contain rounded-full" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.3))' }} crossOrigin="anonymous" />
+                                    <img src={team.shield_url} className="w-full h-full object-contain rounded-full" crossOrigin="anonymous" />
                                     : <span className="material-symbols-outlined text-2xl" style={{ color: '#64748b' }}>shield</span>
                                   }
                                 </div>
