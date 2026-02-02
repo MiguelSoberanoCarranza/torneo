@@ -272,47 +272,33 @@ const LeagueTableScreen: React.FC = () => {
   // Function to handle image download with robust error handling
   const downloadImage = async () => {
     if (!exportRef.current) return;
+    if (exporting) return; // Prevent concurrent exports
 
     setExporting(true);
     try {
       const element = exportRef.current;
 
-      // 1. Pre-process images: Convert to Base64 to bypass CORS issues on mobile
+      // 1. Pre-process images: Simple Cache Busting if needed (or rely on toPng). 
+      // Removed complex Blob logic as it was causing issues on Mobile.
+      // Ensure images have crossOrigin="anonymous" in JSX.
+
       const images = Array.from(element.querySelectorAll('img'));
       const promises = images.map(img => {
         return new Promise<void>((resolve) => {
-          (async () => {
-            // Skip if already data url
-            if (img.src.startsWith('data:')) {
-              resolve();
-              return;
-            }
+          // Just ensure crossOrigin is set if not already (safeguard)
+          if (!img.crossOrigin) img.crossOrigin = "anonymous";
 
-            const originalSrc = img.src;
-            try {
-              // Add timestamp to force fresh fetch
-              const fetchUrl = originalSrc + (originalSrc.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+          // Optional: Add cache buster if not data url
+          if (!img.src.startsWith('data:') && !img.src.includes('t=')) {
+            // img.src = img.src + (img.src.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+            // Actually, modifying src triggers reload. Let's trust html-to-image's cacheBust: true
+          }
 
-              const response = await fetch(fetchUrl, {
-                mode: 'cors',
-                cache: 'no-store'
-              });
-
-              if (!response.ok) throw new Error('Network response was not ok');
-
-              const blob = await response.blob();
-
-              // Use createObjectURL which is faster and sync
-              const objectUrl = URL.createObjectURL(blob);
-              img.src = objectUrl;
-              img.dataset.originalSrc = originalSrc;
-
-              resolve();
-            } catch (error) {
-              console.warn('Failed to fetch image:', originalSrc, error);
-              resolve();
-            }
-          })();
+          if (img.complete) resolve();
+          else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          }
         });
       });
 
@@ -333,7 +319,7 @@ const LeagueTableScreen: React.FC = () => {
         )
       ).then(cssList => cssList.join('\n'));
 
-      // Wait for all images AND fonts (or timeout after 5s)
+      // Wait for images and fonts
       const [_, fontEmbedCSS] = await Promise.race([
         Promise.all([Promise.all(promises), fontsPromise]),
         new Promise<[void[], string]>(resolve => setTimeout(() => resolve([[], '']), 5000))
@@ -344,24 +330,11 @@ const LeagueTableScreen: React.FC = () => {
         cacheBust: true,
         backgroundColor: '#0f172a',
         pixelRatio: 2,
-        fontEmbedCSS: fontEmbedCSS || undefined, // Use fetched CSS or default to undefined (letting lib try, or better: empty string to skip?)
-        // If we failed to fetch, fontEmbedCSS is '', passing that might disable all fonts. 
-        // If it's empty string, html-to-image might revert to scraping? No, it usually uses it.
-        // Let's pass it if it exists, otherwise undefined to let library try (even if it errors).
-        // Actually, if we timed out, we might want to skip fonts to ensure success. 
-        // Let's use the result.
+        fontEmbedCSS: fontEmbedCSS || undefined,
       });
 
-      // 3. Restore original images & cleanup
-      images.forEach(img => {
-        if (img.src.startsWith('blob:')) {
-          URL.revokeObjectURL(img.src);
-        }
-        if (img.dataset.originalSrc) {
-          img.src = img.dataset.originalSrc;
-          delete img.dataset.originalSrc;
-        }
-      });
+      // 3. No cleanup needed for blobs
+
 
       // 4. Download
       const link = document.createElement('a');
