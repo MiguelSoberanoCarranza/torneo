@@ -269,6 +269,46 @@ const LeagueTableScreen: React.FC = () => {
     }
   };
 
+  // Helper function to convert image URL to base64 using fetch (more robust for CORS)
+  const imageUrlToBase64 = async (url: string): Promise<string | null> => {
+    try {
+      // Try fetch with no-cors mode and blob
+      const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+      if (!response.ok) throw new Error('Fetch failed');
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      // Fallback: try with Image element and canvas
+      return new Promise((resolve) => {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth || 100;
+            canvas.height = image.naturalHeight || 100;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(image, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            } else {
+              resolve(null);
+            }
+          } catch {
+            resolve(null);
+          }
+        };
+        image.onerror = () => resolve(null);
+        image.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+      });
+    }
+  };
+
   // Function to handle image download with robust error handling
   const downloadImage = async () => {
     if (!exportRef.current) return;
@@ -279,49 +319,27 @@ const LeagueTableScreen: React.FC = () => {
 
       // 1. Pre-process images: Convert to Base64 to bypass CORS issues on mobile
       const images = Array.from(element.querySelectorAll('img'));
-      const promises = images.map(img => {
-        return new Promise<void>((resolve) => {
-          // Skip if already data url
-          if (img.src.startsWith('data:')) {
-            resolve();
-            return;
-          }
+      const imagePromises = images.map(async (img) => {
+        // Skip if already data url
+        if (img.src.startsWith('data:')) return;
 
-          const originalSrc = img.src;
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = image.naturalWidth;
-            canvas.height = image.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            try {
-              if (ctx) {
-                ctx.drawImage(image, 0, 0);
-                // Replace src with base64
-                img.src = canvas.toDataURL('image/png');
-                // Store original to restore later
-                img.dataset.originalSrc = originalSrc;
-              }
-            } catch (e) {
-              console.warn('Failed to convert image to base64:', originalSrc);
-            }
-            resolve();
-          };
-          image.onerror = () => {
-            console.warn('Failed to load image:', originalSrc);
-            resolve();
-          };
-          // Append timestamp to avoid cache issues
-          image.src = originalSrc + '?t=' + new Date().getTime();
-        });
+        const originalSrc = img.src;
+        const base64 = await imageUrlToBase64(originalSrc);
+
+        if (base64) {
+          img.dataset.originalSrc = originalSrc;
+          img.src = base64;
+        }
       });
 
-      // Wait for all images (or timeout after 5s to prevent hanging)
+      // Wait for all images (or timeout after 8s to prevent hanging)
       await Promise.race([
-        Promise.all(promises),
-        new Promise(resolve => setTimeout(resolve, 5000))
+        Promise.all(imagePromises),
+        new Promise(resolve => setTimeout(resolve, 8000))
       ]);
+
+      // Small delay to ensure DOM updates
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // 2. Capture
       const dataUrl = await toPng(element, {

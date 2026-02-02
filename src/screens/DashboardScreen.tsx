@@ -646,6 +646,13 @@ const DashboardScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Version Footer */}
+      <div className="fixed bottom-20 right-4 z-40">
+        <span className="text-[10px] text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
+          v1.1.0
+        </span>
+      </div>
     </div>
   );
 };
