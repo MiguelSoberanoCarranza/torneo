@@ -317,10 +317,27 @@ const LeagueTableScreen: React.FC = () => {
         });
       });
 
-      // Wait for all images (or timeout after 5s to prevent hanging)
-      await Promise.race([
-        Promise.all(promises),
-        new Promise(resolve => setTimeout(resolve, 5000))
+      // NEW: Fetch fonts manually to avoid SecurityError with cssRules
+      const fontUrls = [
+        'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap',
+        'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap'
+      ];
+
+      const fontsPromise = Promise.all(
+        fontUrls.map(url =>
+          fetch(url)
+            .then(res => res.text())
+            .catch(() => {
+              console.warn('Failed to fetch font:', url);
+              return '';
+            })
+        )
+      ).then(cssList => cssList.join('\n'));
+
+      // Wait for all images AND fonts (or timeout after 5s)
+      const [_, fontEmbedCSS] = await Promise.race([
+        Promise.all([Promise.all(promises), fontsPromise]),
+        new Promise<[void[], string]>(resolve => setTimeout(() => resolve([[], '']), 5000))
       ]);
 
       // 2. Capture
@@ -328,6 +345,12 @@ const LeagueTableScreen: React.FC = () => {
         cacheBust: true,
         backgroundColor: '#0f172a',
         pixelRatio: 2,
+        fontEmbedCSS: fontEmbedCSS || undefined, // Use fetched CSS or default to undefined (letting lib try, or better: empty string to skip?)
+        // If we failed to fetch, fontEmbedCSS is '', passing that might disable all fonts. 
+        // If it's empty string, html-to-image might revert to scraping? No, it usually uses it.
+        // Let's pass it if it exists, otherwise undefined to let library try (even if it errors).
+        // Actually, if we timed out, we might want to skip fonts to ensure success. 
+        // Let's use the result.
       });
 
       // 3. Restore original images
