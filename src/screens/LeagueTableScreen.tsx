@@ -280,7 +280,7 @@ const LeagueTableScreen: React.FC = () => {
       // 1. Pre-process images: Convert to Base64 to bypass CORS issues on mobile
       const images = Array.from(element.querySelectorAll('img'));
       const promises = images.map(img => {
-        return new Promise<void>((resolve) => {
+        return new Promise<void>(async (resolve) => {
           // Skip if already data url
           if (img.src.startsWith('data:')) {
             resolve();
@@ -288,32 +288,39 @@ const LeagueTableScreen: React.FC = () => {
           }
 
           const originalSrc = img.src;
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = image.naturalWidth;
-            canvas.height = image.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            try {
-              if (ctx) {
-                ctx.drawImage(image, 0, 0);
-                // Replace src with base64
-                img.src = canvas.toDataURL('image/png');
-                // Store original to restore later
+          try {
+            // Use fetch explicitly to handle CORS and get blob
+            // Adding cache: 'no-cache' to ensure we get fresh headers if needed, 
+            // though 'default' is usually fine if headers are correct.
+            const response = await fetch(originalSrc, {
+              mode: 'cors',
+              credentials: 'omit' // Usually public images don't need cookies
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const blob = await response.blob();
+
+            // Convert blob to base64
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (reader.result && typeof reader.result === 'string') {
+                img.src = reader.result;
                 img.dataset.originalSrc = originalSrc;
               }
-            } catch (e) {
-              console.warn('Failed to convert image to base64:', originalSrc);
-            }
+              resolve();
+            };
+            reader.onerror = () => {
+              console.warn('Failed to read blob:', originalSrc);
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+
+          } catch (error) {
+            console.warn('Failed to fetch image:', originalSrc, error);
+            // If fetch fails, we leave the original src and let html-to-image try its best
             resolve();
-          };
-          image.onerror = () => {
-            console.warn('Failed to load image:', originalSrc);
-            resolve();
-          };
-          // Append timestamp to avoid cache issues
-          image.src = originalSrc + '?t=' + new Date().getTime();
+          }
         });
       });
 
