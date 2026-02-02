@@ -568,51 +568,42 @@ const CalendarScreen: React.FC = () => {
     try {
       const element = exportRef.current;
 
-      // 1. Pre-process images: Convert to Base64 to bypass CORS in html2canvas
+      // 1. Pre-process images: Simple Cache Busting if needed (or rely on toPng).
+      // Ensure images have crossOrigin="anonymous" in JSX.
       const images = Array.from(element.querySelectorAll('img'));
       const promises = images.map(img => {
         return new Promise<void>((resolve) => {
-          // Skip if already data url
-          if (img.src.startsWith('data:')) {
-            resolve();
-            return;
+          // Just ensure crossOrigin is set if not already (safeguard)
+          if (!img.crossOrigin) img.crossOrigin = "anonymous";
+          if (img.complete) resolve();
+          else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
           }
-
-          const originalSrc = img.src;
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = image.naturalWidth;
-            canvas.height = image.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            try {
-              if (ctx) {
-                ctx.drawImage(image, 0, 0);
-                // Replace src with base64
-                img.src = canvas.toDataURL('image/png');
-                // Store original to restore later
-                img.dataset.originalSrc = originalSrc;
-              }
-            } catch (e) {
-              console.warn('Failed to convert image to base64 (tainted canvas?), keeping original URL', originalSrc);
-            }
-            resolve();
-          };
-          image.onerror = () => {
-            console.warn('Failed to load image for CORS processing:', originalSrc);
-            // Don't reject, just continue with original URL -> html2canvas might still handle it or show blank
-            resolve();
-          };
-          // Append timestamp to avoid cache issues if needed
-          image.src = originalSrc + '?t=' + new Date().getTime();
         });
       });
 
-      // Wait for all images (or timeout after 5s to prevent hanging)
-      await Promise.race([
-        Promise.all(promises),
-        new Promise(resolve => setTimeout(resolve, 5000))
+      // NEW: Fetch fonts manually to avoid SecurityError with cssRules
+      const fontUrls = [
+        'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap',
+        'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap'
+      ];
+
+      const fontsPromise = Promise.all(
+        fontUrls.map(url =>
+          fetch(url)
+            .then(res => res.text())
+            .catch(() => {
+              console.warn('Failed to fetch font:', url);
+              return '';
+            })
+        )
+      ).then(cssList => cssList.join('\n'));
+
+      // Wait for images and fonts
+      const [_, fontEmbedCSS] = await Promise.race([
+        Promise.all([Promise.all(promises), fontsPromise]),
+        new Promise<[void[], string]>(resolve => setTimeout(() => resolve([[], '']), 5000))
       ]);
 
       // 2. Capture
@@ -620,14 +611,7 @@ const CalendarScreen: React.FC = () => {
         cacheBust: true,
         backgroundColor: '#0f172a', // Match bg color
         pixelRatio: 2, // 2x resolution for high quality
-      });
-
-      // 3. Restore original images
-      images.forEach(img => {
-        if (img.dataset.originalSrc) {
-          img.src = img.dataset.originalSrc;
-          delete img.dataset.originalSrc;
-        }
+        fontEmbedCSS: fontEmbedCSS || undefined,
       });
 
       // 4. Download
