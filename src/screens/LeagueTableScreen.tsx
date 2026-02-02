@@ -280,47 +280,39 @@ const LeagueTableScreen: React.FC = () => {
       // 1. Pre-process images: Convert to Base64 to bypass CORS issues on mobile
       const images = Array.from(element.querySelectorAll('img'));
       const promises = images.map(img => {
-        return new Promise<void>(async (resolve) => {
-          // Skip if already data url
-          if (img.src.startsWith('data:')) {
-            resolve();
-            return;
-          }
-
-          const originalSrc = img.src;
-          try {
-            // Use fetch explicitly to handle CORS and get blob
-            // Adding cache: 'no-cache' to ensure we get fresh headers if needed, 
-            // though 'default' is usually fine if headers are correct.
-            const response = await fetch(originalSrc, {
-              mode: 'cors',
-              credentials: 'omit' // Usually public images don't need cookies
-            });
-
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            const blob = await response.blob();
-
-            // Convert blob to base64
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              if (reader.result && typeof reader.result === 'string') {
-                img.src = reader.result;
-                img.dataset.originalSrc = originalSrc;
-              }
+        return new Promise<void>((resolve) => {
+          (async () => {
+            // Skip if already data url
+            if (img.src.startsWith('data:')) {
               resolve();
-            };
-            reader.onerror = () => {
-              console.warn('Failed to read blob:', originalSrc);
-              resolve();
-            };
-            reader.readAsDataURL(blob);
+              return;
+            }
 
-          } catch (error) {
-            console.warn('Failed to fetch image:', originalSrc, error);
-            // If fetch fails, we leave the original src and let html-to-image try its best
-            resolve();
-          }
+            const originalSrc = img.src;
+            try {
+              // Add timestamp to force fresh fetch
+              const fetchUrl = originalSrc + (originalSrc.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+
+              const response = await fetch(fetchUrl, {
+                mode: 'cors',
+                cache: 'no-store'
+              });
+
+              if (!response.ok) throw new Error('Network response was not ok');
+
+              const blob = await response.blob();
+
+              // Use createObjectURL which is faster and sync
+              const objectUrl = URL.createObjectURL(blob);
+              img.src = objectUrl;
+              img.dataset.originalSrc = originalSrc;
+
+              resolve();
+            } catch (error) {
+              console.warn('Failed to fetch image:', originalSrc, error);
+              resolve();
+            }
+          })();
         });
       });
 
@@ -360,8 +352,11 @@ const LeagueTableScreen: React.FC = () => {
         // Let's use the result.
       });
 
-      // 3. Restore original images
+      // 3. Restore original images & cleanup
       images.forEach(img => {
+        if (img.src.startsWith('blob:')) {
+          URL.revokeObjectURL(img.src);
+        }
         if (img.dataset.originalSrc) {
           img.src = img.dataset.originalSrc;
           delete img.dataset.originalSrc;
