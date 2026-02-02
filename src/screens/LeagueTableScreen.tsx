@@ -269,24 +269,76 @@ const LeagueTableScreen: React.FC = () => {
     }
   };
 
-  // Function to handle image download
+  // Function to handle image download with robust error handling
   const downloadImage = async () => {
     if (!exportRef.current) return;
 
     setExporting(true);
     try {
-      // PRE-CARGA DE IMÁGENES:
-      // html-to-image maneja mejor pero sigue siendo buena práctica pre-cargar y cachear
-      // para asegurar que todo esté listo.
-      // Sin embargo, toPng suele usar fetch interno. Vamos a intentar directo primero.
-      // Si fallara, se podría usar la técnica de 'cacheBust: true'
+      const element = exportRef.current;
 
-      const dataUrl = await toPng(exportRef.current, {
-        cacheBust: true,
-        backgroundColor: '#0f172a',
-        pixelRatio: 2, // Mejor calidad
+      // 1. Pre-process images: Convert to Base64 to bypass CORS issues on mobile
+      const images = Array.from(element.querySelectorAll('img'));
+      const promises = images.map(img => {
+        return new Promise<void>((resolve) => {
+          // Skip if already data url
+          if (img.src.startsWith('data:')) {
+            resolve();
+            return;
+          }
+
+          const originalSrc = img.src;
+          const image = new Image();
+          image.crossOrigin = "anonymous";
+          image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            try {
+              if (ctx) {
+                ctx.drawImage(image, 0, 0);
+                // Replace src with base64
+                img.src = canvas.toDataURL('image/png');
+                // Store original to restore later
+                img.dataset.originalSrc = originalSrc;
+              }
+            } catch (e) {
+              console.warn('Failed to convert image to base64:', originalSrc);
+            }
+            resolve();
+          };
+          image.onerror = () => {
+            console.warn('Failed to load image:', originalSrc);
+            resolve();
+          };
+          // Append timestamp to avoid cache issues
+          image.src = originalSrc + '?t=' + new Date().getTime();
+        });
       });
 
+      // Wait for all images (or timeout after 5s to prevent hanging)
+      await Promise.race([
+        Promise.all(promises),
+        new Promise(resolve => setTimeout(resolve, 5000))
+      ]);
+
+      // 2. Capture
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        backgroundColor: '#0f172a',
+        pixelRatio: 2,
+      });
+
+      // 3. Restore original images
+      images.forEach(img => {
+        if (img.dataset.originalSrc) {
+          img.src = img.dataset.originalSrc;
+          delete img.dataset.originalSrc;
+        }
+      });
+
+      // 4. Download
       const link = document.createElement('a');
       link.download = `tabla-general-${currentLeagueName.replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = dataUrl;
