@@ -18,6 +18,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "date-fns": "^4.1.0",
     "html-to-image": "^1.11.13",
+    "modern-screenshot": "^4.6.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.11.0"
