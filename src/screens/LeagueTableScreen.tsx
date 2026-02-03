@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { toPng } from 'html-to-image';
+// import { toPng } from 'html-to-image'; // Removed
+import { captureAndDownload } from '../utils/imageExporter';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 
@@ -269,82 +270,17 @@ const LeagueTableScreen: React.FC = () => {
     }
   };
 
-  // Function to handle image download with robust error handling
+  // Function to handle image download using the centralized utility
   const downloadImage = async () => {
     if (!exportRef.current) return;
-    if (exporting) return; // Prevent concurrent exports
+    if (exporting) return;
 
     setExporting(true);
     try {
-      const element = exportRef.current;
-
-      // 1. Pre-process images: Simple Cache Busting if needed (or rely on toPng). 
-      // Removed complex Blob logic as it was causing issues on Mobile.
-      // Ensure images have crossOrigin="anonymous" in JSX.
-
-      const images = Array.from(element.querySelectorAll('img'));
-      const promises = images.map(img => {
-        return new Promise<void>((resolve) => {
-          // Just ensure crossOrigin is set if not already (safeguard)
-          if (!img.crossOrigin) img.crossOrigin = "anonymous";
-
-          // Optional: Add cache buster if not data url
-          if (!img.src.startsWith('data:') && !img.src.includes('t=')) {
-            // img.src = img.src + (img.src.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-            // Actually, modifying src triggers reload. Let's trust html-to-image's cacheBust: true
-          }
-
-          if (img.complete) resolve();
-          else {
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-          }
-        });
-      });
-
-      // NEW: Fetch fonts manually to avoid SecurityError with cssRules
-      const fontUrls = [
-        'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap',
-        'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap'
-      ];
-
-      const fontsPromise = Promise.all(
-        fontUrls.map(url =>
-          fetch(url)
-            .then(res => res.text())
-            .catch(() => {
-              console.warn('Failed to fetch font:', url);
-              return '';
-            })
-        )
-      ).then(cssList => cssList.join('\n'));
-
-      // Wait for images and fonts
-      const [_, fontEmbedCSS] = await Promise.race([
-        Promise.all([Promise.all(promises), fontsPromise]),
-        new Promise<[void[], string]>(resolve => setTimeout(() => resolve([[], '']), 5000))
-      ]);
-
-      // 2. Capture
-      const dataUrl = await toPng(element, {
-        cacheBust: true,
-        backgroundColor: '#0f172a',
-        pixelRatio: 2,
-        fontEmbedCSS: fontEmbedCSS || undefined,
-      });
-
-      // 3. No cleanup needed for blobs
-
-
-      // 4. Download
-      const link = document.createElement('a');
-      link.download = `tabla-general-${currentLeagueName.replace(/\s+/g, '-').toLowerCase()}.png`;
-      link.href = dataUrl;
-      link.click();
-
+      const fileName = `tabla-general-${currentLeagueName.replace(/\s+/g, '-').toLowerCase()}.png`;
+      await captureAndDownload(exportRef.current, { fileName });
       showToast("Imagen descargada correctamente", "success");
       setShowExportModal(false);
-
     } catch (error) {
       console.error(error);
       showToast("Error al exportar imagen", "error");

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
-import { toPng } from 'html-to-image';
+// import { toPng } from 'html-to-image'; // Removed
+import { captureAndDownload } from '../utils/imageExporter';
 
 interface Match {
   id: string;
@@ -563,62 +564,12 @@ const CalendarScreen: React.FC = () => {
   // Function to handle image download with robust error handling
   const downloadImage = async () => {
     if (!exportRef.current) return;
+    if (exporting) return;
 
     setExporting(true);
     try {
-      const element = exportRef.current;
-
-      // 1. Pre-process images: Simple Cache Busting if needed (or rely on toPng).
-      // Ensure images have crossOrigin="anonymous" in JSX.
-      const images = Array.from(element.querySelectorAll('img'));
-      const promises = images.map(img => {
-        return new Promise<void>((resolve) => {
-          // Just ensure crossOrigin is set if not already (safeguard)
-          if (!img.crossOrigin) img.crossOrigin = "anonymous";
-          if (img.complete) resolve();
-          else {
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-          }
-        });
-      });
-
-      // NEW: Fetch fonts manually to avoid SecurityError with cssRules
-      const fontUrls = [
-        'https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap',
-        'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap'
-      ];
-
-      const fontsPromise = Promise.all(
-        fontUrls.map(url =>
-          fetch(url)
-            .then(res => res.text())
-            .catch(() => {
-              console.warn('Failed to fetch font:', url);
-              return '';
-            })
-        )
-      ).then(cssList => cssList.join('\n'));
-
-      // Wait for images and fonts
-      const [_, fontEmbedCSS] = await Promise.race([
-        Promise.all([Promise.all(promises), fontsPromise]),
-        new Promise<[void[], string]>(resolve => setTimeout(() => resolve([[], '']), 5000))
-      ]);
-
-      // 2. Capture
-      const dataUrl = await toPng(element, {
-        cacheBust: true,
-        backgroundColor: '#0f172a', // Match bg color
-        pixelRatio: 2, // 2x resolution for high quality
-        fontEmbedCSS: fontEmbedCSS || undefined,
-      });
-
-      // 4. Download
-      const link = document.createElement('a');
-      link.download = `jornada-${exportData?.round || 'tabla'}-premier.png`;
-      link.href = dataUrl;
-      link.click();
+      const fileName = `jornada-${exportData?.round || 'tabla'}-premier.png`;
+      await captureAndDownload(exportRef.current, { fileName });
 
       showToast("Imagen descargada correctamente", "success");
       setShowExportModal(false); // Close modal on success
