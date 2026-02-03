@@ -1366,7 +1366,7 @@ const CalendarScreen: React.FC = () => {
                     {/* Header */}
                     <div className="relative z-10 flex flex-col items-center justify-center mb-10 shrink-0 border-b pb-8" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                       <span className="font-bold tracking-[0.5em] uppercase text-xl mb-3 pl-[0.5em]" style={{ color: '#60a5fa' }}>Liga Premier {new Date().getFullYear()}</span>
-                      <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-4 text-center drop-shadow-lg" style={{ color: '#ffffff' }}>
+                      <h1 className="text-7xl font-black italic uppercase tracking-tighter mb-4 text-center" style={{ color: '#ffffff' }}>
                         Jornada <span style={{ color: '#60a5fa' }}>{exportData.round}</span>
                       </h1>
                       <div className="px-8 py-3 rounded-full border text-xl font-bold uppercase tracking-widest flex items-center gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }}>
@@ -1381,7 +1381,7 @@ const CalendarScreen: React.FC = () => {
                     {/* Matches List */}
                     <div className="relative z-10 flex-1 flex flex-col justify-start gap-5 w-full overflow-hidden px-4">
                       {exportData.matches.map(m => (
-                        <div key={m.id} className="rounded-2xl px-4 py-4 flex items-center border shadow-xl relative w-full min-h-[120px]"
+                        <div key={m.id} className="rounded-2xl px-4 py-4 flex items-center border relative w-full min-h-[120px]"
                           style={{ backgroundColor: 'rgba(30, 41, 59, 1)', borderColor: 'rgba(255,255,255,0.25)' }}>
 
                           {/* Live Strip */}
@@ -1405,7 +1405,7 @@ const CalendarScreen: React.FC = () => {
                             {/* Home Team */}
                             <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
                               <span className="text-3xl font-black text-right leading-tight break-words uppercase max-w-[280px]" style={{ color: '#ffffff' }}>{m.home_team?.name}</span>
-                              <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
+                              <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.home_team?.shield_url ?
                                   <img src={m.home_team.shield_url} className="w-full h-full object-contain rounded-full" crossOrigin="anonymous" />
                                   : <svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48" fill="currentColor" className="text-slate-500 w-12 h-12">
@@ -1420,7 +1420,7 @@ const CalendarScreen: React.FC = () => {
                               {m.status === 'scheduled' ? (
                                 <span className="text-2xl font-black italic opacity-50" style={{ color: '#475569' }}>VS</span>
                               ) : (
-                                <div className="px-6 h-16 rounded-xl border flex items-center justify-center gap-2 shadow-2xl" style={{ backgroundColor: 'rgba(2, 6, 23, 0.95)', borderColor: 'rgba(255,255,255,0.2)', lineHeight: '1' }}>
+                                <div className="px-6 h-16 rounded-xl border flex items-center justify-center gap-2" style={{ backgroundColor: 'rgba(2, 6, 23, 0.95)', borderColor: 'rgba(255,255,255,0.2)', lineHeight: '1' }}>
                                   <span className="text-4xl font-black tracking-tighter" style={{ color: m.home_score === -1 ? '#ef4444' : '#ffffff', transform: 'translateY(-2px)' }}>
                                     {m.home_score === -1 ? 'P' : m.home_score}
                                   </span>
@@ -1434,7 +1434,7 @@ const CalendarScreen: React.FC = () => {
 
                             {/* Away Team */}
                             <div className="flex-1 flex items-center justify-start gap-3 min-w-0">
-                              <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 shadow-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
+                              <div className="w-32 h-32 flex items-center justify-center shrink-0 rounded-full p-1.5 border-4 overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                 {m.away_team?.shield_url ?
                                   <img src={m.away_team.shield_url} className="w-full h-full object-contain rounded-full" crossOrigin="anonymous" />
                                   : <svg xmlns="http://www.w3.org/2000/svg" height="48" viewBox="0 -960 960 960" width="48" fill="currentColor" className="text-slate-500 w-12 h-12">

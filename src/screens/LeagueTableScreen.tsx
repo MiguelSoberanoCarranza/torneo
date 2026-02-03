@@ -662,7 +662,7 @@ const LeagueTableScreen: React.FC = () => {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex justify-center items-center">
-                                <div className="px-4 py-1 rounded-lg border font-black text-2xl text-white" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                                <div className="px-4 py-1 rounded-lg border font-black text-2xl text-white" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }}>
                                   {scorer.goals}
                                 </div>
                               </div>
