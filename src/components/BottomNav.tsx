@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 const BottomNav: React.FC = () => {
   const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         setRole(profile?.role || 'user');
@@ -23,6 +26,7 @@ const BottomNav: React.FC = () => {
         fetchRole();
       } else if (event === 'SIGNED_OUT') {
         setRole(null);
+        setUser(null);
       }
     });
 
@@ -31,19 +35,30 @@ const BottomNav: React.FC = () => {
     };
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/admin-login');
+  };
+
+  // Items del BottomNav - solo si está autenticado
+  if (!user) return null;
+
   const displayItems = [
     { name: 'Inicio', icon: 'home', path: '/' },
-    { name: 'Tabla', icon: 'table_chart', path: '/league-table' },
-    { name: 'Liguilla', icon: 'workspace_premium', path: '/liguilla' },
   ];
 
+  // Torneos solo para admins
+  if (role && ['admin', 'superadmin'].includes(role)) {
+    displayItems.push({ name: 'Torneos', icon: 'emoji_events', path: '/tournaments' });
+  }
+
+  // Calendario para admin / referee
   if (role && ['admin', 'superadmin', 'referee'].includes(role)) {
     displayItems.push({ name: 'Calendario', icon: 'calendar_month', path: '/calendar' });
   }
 
-  if (role === 'admin' || role === 'superadmin') {
-    displayItems.push({ name: 'Ligas', icon: 'emoji_events', path: '/my-leagues' });
-  } else if (role === 'captain') {
+  // Mi Equipo solo para captain
+  if (role === 'captain') {
     displayItems.push({ name: 'Mi Equipo', icon: 'groups', path: '/my-team' });
   }
 
@@ -54,6 +69,7 @@ const BottomNav: React.FC = () => {
           <NavLink
             key={item.name}
             to={item.path}
+            end={item.path === '/'}
             className={({ isActive }) =>
               `relative flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 ${isActive
                 ? 'bg-primary/10 text-primary scale-105'
@@ -80,6 +96,16 @@ const BottomNav: React.FC = () => {
             )}
           </NavLink>
         ))}
+
+        {/* Logout button */}
+        <button
+          onClick={handleLogout}
+          className="relative flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-300 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+          title="Cerrar sesión"
+        >
+          <span className="material-symbols-outlined text-2xl">logout</span>
+          <span className="text-[9px] font-bold absolute bottom-1.5 opacity-0">Salir</span>
+        </button>
       </nav>
     </div>
   );

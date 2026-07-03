@@ -27,6 +27,7 @@ interface Match {
     away_score: number | null;
     status: 'scheduled' | 'finished' | 'live' | 'break';
     round_number: number;
+    leg?: number; // 1 = ida, 2 = vuelta
     start_time?: string;
 }
 
@@ -44,7 +45,11 @@ const LiguillaScreen: React.FC = () => {
     // Playoff State
     const [qfMatches, setQfMatches] = useState<Match[]>([]);
     const [sfMatches, setSfMatches] = useState<Match[]>([]);
-    const [finalMatch, setFinalMatch] = useState<Match | null>(null);
+    const [finalMatches, setFinalMatches] = useState<Match[]>([]);
+
+    // Liguilla config (ida y vuelta, permitir empates)
+    const [liguillaTwoLegged, setLiguillaTwoLegged] = useState(false);
+    const [allowDraws, setAllowDraws] = useState(true);
 
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
@@ -122,6 +127,21 @@ const LiguillaScreen: React.FC = () => {
     const fetchData = async (leagueId: string) => {
         setLoading(true);
         try {
+            // 0. Fetch league config to know if liguilla is two-legged
+            const { data: leagueCfg } = await supabase
+                .from('leagues')
+                .select('settings')
+                .eq('id', leagueId)
+                .single();
+
+            if (leagueCfg?.settings) {
+                setLiguillaTwoLegged(!!leagueCfg.settings.liguilla_two_legged);
+                setAllowDraws(leagueCfg.settings.allow_draws ?? true);
+            } else {
+                setLiguillaTwoLegged(false);
+                setAllowDraws(true);
+            }
+
             // 1. Fetch ALL Teams (needed to resolve names in matches)
             const { data: teams, error: teamsError } = await supabase
                 .from('teams')
@@ -133,7 +153,7 @@ const LiguillaScreen: React.FC = () => {
             // 2. Fetch Regular Season Matches (Round < 100)
             const { data: regularMatches } = await supabase
                 .from('matches')
-                .select('id, home_team_id, away_team_id, home_score, away_score, status, round_number')
+                .select('id, home_team_id, away_team_id, home_score, away_score, status, round_number, leg')
                 .eq('league_id', leagueId)
                 .eq('status', 'finished')
                 .lt('round_number', 100);
@@ -144,7 +164,8 @@ const LiguillaScreen: React.FC = () => {
                 .select('*')
                 .eq('league_id', leagueId)
                 .gte('round_number', 100)
-                .order('round_number', { ascending: true });
+                .order('round_number', { ascending: true })
+                .order('leg', { ascending: true });
 
             // Process Regular Season Standings
             if (teams && regularMatches) {
@@ -191,12 +212,11 @@ const LiguillaScreen: React.FC = () => {
             if (playoffMatches) {
                 setQfMatches(playoffMatches.filter(m => m.round_number === ROUND_QF));
                 setSfMatches(playoffMatches.filter(m => m.round_number === ROUND_SF));
-                const final = playoffMatches.find(m => m.round_number === ROUND_FINAL);
-                setFinalMatch(final || null);
+                setFinalMatches(playoffMatches.filter(m => m.round_number === ROUND_FINAL));
             } else {
                 setQfMatches([]);
                 setSfMatches([]);
-                setFinalMatch(null);
+                setFinalMatches([]);
             }
 
         } catch (error) {
@@ -236,14 +256,31 @@ const LiguillaScreen: React.FC = () => {
                 await supabase.from('matches').delete().eq('league_id', selectedLeagueId).eq('round_number', ROUND_QF);
             }
 
-            const inserts = matchups.map(m => ({
-                league_id: selectedLeagueId,
-                home_team_id: m.home.id,
-                away_team_id: m.away.id,
-                round_number: ROUND_QF,
-                start_time: new Date().toISOString(), // Placeholder time
-                status: 'scheduled'
-            }));
+            const inserts: any[] = [];
+            matchups.forEach(m => {
+                // Partido de IDA
+                inserts.push({
+                    league_id: selectedLeagueId,
+                    home_team_id: m.home.id,
+                    away_team_id: m.away.id,
+                    round_number: ROUND_QF,
+                    leg: 1,
+                    start_time: new Date().toISOString(),
+                    status: 'scheduled'
+                });
+                // Si es ida y vuelta, agregar el partido de VUELTA (invierte local/visitante)
+                if (liguillaTwoLegged) {
+                    inserts.push({
+                        league_id: selectedLeagueId,
+                        home_team_id: m.away.id,
+                        away_team_id: m.home.id,
+                        round_number: ROUND_QF,
+                        leg: 2,
+                        start_time: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        status: 'scheduled'
+                    });
+                }
+            });
 
             const { error } = await supabase.from('matches').insert(inserts);
             if (error) throw error;
@@ -262,47 +299,84 @@ const LiguillaScreen: React.FC = () => {
     const generateSemiFinals = async () => {
         if (!canEdit) return;
 
-        // Validation: Ensure we have enough finished matches
+        // Validation: we need all QF matches finished.
+        // If two-legged, need both legs finished for each pair.
+        const expectedMatchCount = liguillaTwoLegged ? 8 : 4;
         const finishedMatches = qfMatches.filter(m => m.status === 'finished');
 
-        if (finishedMatches.length < 4) {
-            showToast(`Se requieren 4 partidos de Cuartos finalizados. Encontrados: ${finishedMatches.length}`, 'info');
+        if (finishedMatches.length < expectedMatchCount) {
+            showToast(`Se requieren ${expectedMatchCount} partidos de Cuartos finalizados. Encontrados: ${finishedMatches.length}`, 'info');
             return;
         }
 
         setUpdating(true);
         try {
-            // Use the finished matches directly. 
-            // We prioritize qfMatches if exactly 4 to keep original structure, otherwise filter.
-            const sourceMatches = finishedMatches.length === 4 ? finishedMatches : finishedMatches.slice(0, 4);
+            // Group QF matches by "pair" (keyed by sorted team IDs)
+            const pairMap: Record<string, Match[]> = {};
+            qfMatches.forEach(m => {
+                const key = [m.home_team_id, m.away_team_id].sort().join('_');
+                if (!pairMap[key]) pairMap[key] = [];
+                pairMap[key].push(m);
+            });
 
-            const winners = sourceMatches.map(m => {
-                const homeScore = m.home_score ?? 0;
-                const awayScore = m.away_score ?? 0;
-
-                // Try to find teams in qualifiedTeams to get their Rank for tiebreakers
-                // Note: If teams dropped out of top 8, this might return undefined.
-                // In a robust system we would fetch specific team data here if missing.
-                const homeTeam = qualifiedTeams.find(t => t.id === m.home_team_id);
-                const awayTeam = qualifiedTeams.find(t => t.id === m.away_team_id);
-
-                if (!homeTeam || !awayTeam) {
-                    console.warn(`Equipo no encontrado en qualifiedTeams para partido ${m.id}`);
-                    // Fallback object just to propagate ID if needed, but rank will be missing
-                    // Use a very high rank so they lose tiebreakers against valid ranked teams
-                    return null;
+            const pairKeys = Object.keys(pairMap).slice(0, 4);
+            const winners: (Team | null)[] = pairKeys.map(key => {
+                const pairMatches = pairMap[key];
+                if (liguillaTwoLegged) {
+                    // Need both legs finished
+                    if (pairMatches.length < 2 || pairMatches.some(m => m.status !== 'finished')) return null;
+                    const leg1 = pairMatches.find(m => (m.leg || 1) === 1);
+                    const leg2 = pairMatches.find(m => (m.leg || 1) === 2);
+                    if (!leg1 || !leg2) return null;
+                    // For id-a-and-return, leg1 home = leg2 away and vice-versa
+                    // Calculate global score for each team
+                    const teamAId = leg1.home_team_id;
+                    const teamBId = leg1.away_team_id;
+                    const leg1A = leg1.home_score ?? 0;
+                    const leg1B = leg1.away_score ?? 0;
+                    // In leg2, home = teamB and away = teamA
+                    const leg2A = leg2.away_score ?? 0; // teamA as away
+                    const leg2B = leg2.home_score ?? 0; // teamB as home
+                    const teamAGlobal = leg1A + leg2A;
+                    const teamBGlobal = leg1B + leg2B;
+                    const teamA = qualifiedTeams.find(t => t.id === teamAId);
+                    const teamB = qualifiedTeams.find(t => t.id === teamBId);
+                    if (!teamA || !teamB) return null;
+                    if (teamAGlobal > teamBGlobal) return teamA;
+                    if (teamBGlobal > teamAGlobal) return teamB;
+                    // Tie on aggregate
+                    if (allowDraws) {
+                        // With allow_draws, there shouldn't be ties. Pick best rank.
+                        return (teamA.rank! < teamB.rank!) ? teamA : teamB;
+                    }
+                    // Without allow_draws in liguilla, define by rank (best ranked wins)
+                    return (teamA.rank! < teamB.rank!) ? teamA : teamB;
+                } else {
+                    // Single match
+                    const m = pairMatches[0];
+                    const homeScore = m.home_score ?? 0;
+                    const awayScore = m.away_score ?? 0;
+                    const homeTeam = qualifiedTeams.find(t => t.id === m.home_team_id);
+                    const awayTeam = qualifiedTeams.find(t => t.id === m.away_team_id);
+                    if (!homeTeam || !awayTeam) return null;
+                    if (homeScore > awayScore) return homeTeam;
+                    if (awayScore > homeScore) return awayTeam;
+                    // Tie
+                    if (allowDraws) {
+                        return (homeTeam.rank! < awayTeam.rank!) ? homeTeam : awayTeam;
+                    }
+                    return (homeTeam.rank! < awayTeam.rank!) ? homeTeam : awayTeam;
                 }
+            });
 
-                if (homeScore > awayScore) return homeTeam;
-                if (awayScore > homeScore) return awayTeam;
-
-                // Tie: Best Rank wins
-                return (homeTeam.rank! < awayTeam.rank!) ? homeTeam : awayTeam;
-            }).filter(Boolean) as Team[];
+            if (winners.some(w => w === null)) {
+                throw new Error('No se pudieron determinar los ganadores de cuartos.');
+            }
+            const winnerTeams = winners as Team[];
 
             // Ensure unique winners
-            const uniqueWinners = Array.from(new Set(winners.map(w => w.id)))
-                .map(id => winners.find(w => w.id === id)!);
+            const uniqueWinners = Array.from(new Set(winnerTeams.map(w => w.id)))
+                .map(id => winnerTeams.find(w => w.id === id)!);
 
             if (uniqueWinners.length !== 4) {
                 throw new Error(`Se esperaban 4 ganadores únicos, se encontraron ${uniqueWinners.length}.`);
@@ -322,14 +396,29 @@ const LiguillaScreen: React.FC = () => {
                 await supabase.from('matches').delete().eq('league_id', selectedLeagueId).eq('round_number', ROUND_SF);
             }
 
-            const inserts = semiMatchups.map(m => ({
-                league_id: selectedLeagueId,
-                home_team_id: m.home.id,
-                away_team_id: m.away.id,
-                round_number: ROUND_SF,
-                start_time: new Date().toISOString(),
-                status: 'scheduled'
-            }));
+            const inserts: any[] = [];
+            semiMatchups.forEach(m => {
+                inserts.push({
+                    league_id: selectedLeagueId,
+                    home_team_id: m.home.id,
+                    away_team_id: m.away.id,
+                    round_number: ROUND_SF,
+                    leg: 1,
+                    start_time: new Date().toISOString(),
+                    status: 'scheduled'
+                });
+                if (liguillaTwoLegged) {
+                    inserts.push({
+                        league_id: selectedLeagueId,
+                        home_team_id: m.away.id,
+                        away_team_id: m.home.id,
+                        round_number: ROUND_SF,
+                        leg: 2,
+                        start_time: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        status: 'scheduled'
+                    });
+                }
+            });
 
             const { error } = await supabase.from('matches').insert(inserts);
             if (error) throw error;
@@ -348,34 +437,67 @@ const LiguillaScreen: React.FC = () => {
     const generateFinal = async () => {
         if (!canEdit) return;
 
-        // Validation: Need 2 SF matches finished
+        // Validation: Need all SF matches finished
+        const expectedMatchCount = liguillaTwoLegged ? 4 : 2;
         const finishedMatches = sfMatches.filter(m => m.status === 'finished');
 
-        if (finishedMatches.length < 2) {
-            showToast(`Se requieren 2 semifinales finalizadas.`, 'info');
+        if (finishedMatches.length < expectedMatchCount) {
+            showToast(`Se requieren ${expectedMatchCount} partidos de semifinal finalizados. Encontrados: ${finishedMatches.length}`, 'info');
             return;
         }
 
         setUpdating(true);
         try {
-            const winners = finishedMatches.map(m => {
-                const homeScore = m.home_score ?? 0;
-                const awayScore = m.away_score ?? 0;
+            // Group SF matches by pair
+            const pairMap: Record<string, Match[]> = {};
+            sfMatches.forEach(m => {
+                const key = [m.home_team_id, m.away_team_id].sort().join('_');
+                if (!pairMap[key]) pairMap[key] = [];
+                pairMap[key].push(m);
+            });
 
-                const homeTeam = qualifiedTeams.find(t => t.id === m.home_team_id);
-                const awayTeam = qualifiedTeams.find(t => t.id === m.away_team_id);
+            const pairKeys = Object.keys(pairMap).slice(0, 2);
+            const winners: (Team | null)[] = pairKeys.map(key => {
+                const pairMatches = pairMap[key];
+                if (liguillaTwoLegged) {
+                    if (pairMatches.length < 2 || pairMatches.some(m => m.status !== 'finished')) return null;
+                    const leg1 = pairMatches.find(m => (m.leg || 1) === 1);
+                    const leg2 = pairMatches.find(m => (m.leg || 1) === 2);
+                    if (!leg1 || !leg2) return null;
+                    const teamAId = leg1.home_team_id;
+                    const teamBId = leg1.away_team_id;
+                    const leg1A = leg1.home_score ?? 0;
+                    const leg1B = leg1.away_score ?? 0;
+                    const leg2A = leg2.away_score ?? 0;
+                    const leg2B = leg2.home_score ?? 0;
+                    const teamAGlobal = leg1A + leg2A;
+                    const teamBGlobal = leg1B + leg2B;
+                    const teamA = qualifiedTeams.find(t => t.id === teamAId);
+                    const teamB = qualifiedTeams.find(t => t.id === teamBId);
+                    if (!teamA || !teamB) return null;
+                    if (teamAGlobal > teamBGlobal) return teamA;
+                    if (teamBGlobal > teamAGlobal) return teamB;
+                    return (teamA.rank! < teamB.rank!) ? teamA : teamB;
+                } else {
+                    const m = pairMatches[0];
+                    const homeScore = m.home_score ?? 0;
+                    const awayScore = m.away_score ?? 0;
+                    const homeTeam = qualifiedTeams.find(t => t.id === m.home_team_id);
+                    const awayTeam = qualifiedTeams.find(t => t.id === m.away_team_id);
+                    if (!homeTeam || !awayTeam) return null;
+                    if (homeScore > awayScore) return homeTeam;
+                    if (awayScore > homeScore) return awayTeam;
+                    return (homeTeam.rank! < awayTeam.rank!) ? homeTeam : awayTeam;
+                }
+            });
 
-                if (!homeTeam || !awayTeam) return null;
+            if (winners.some(w => w === null)) {
+                throw new Error('No se pudieron determinar los ganadores de semifinales.');
+            }
+            const winnerTeams = winners as Team[];
 
-                if (homeScore > awayScore) return homeTeam;
-                if (awayScore > homeScore) return awayTeam;
-
-                // Tie: Best Rank wins
-                return (homeTeam.rank! < awayTeam.rank!) ? homeTeam : awayTeam;
-            }).filter(Boolean) as Team[];
-
-            const uniqueWinners = Array.from(new Set(winners.map(w => w.id)))
-                .map(id => winners.find(w => w.id === id)!);
+            const uniqueWinners = Array.from(new Set(winnerTeams.map(w => w.id)))
+                .map(id => winnerTeams.find(w => w.id === id)!);
 
             if (uniqueWinners.length !== 2) {
                 throw new Error(`Se esperaban 2 ganadores únicos.`);
@@ -385,20 +507,34 @@ const LiguillaScreen: React.FC = () => {
             uniqueWinners.sort((a, b) => a.rank! - b.rank!);
 
             // Delete old Final
-            if (finalMatch) {
+            if (finalMatches.length > 0) {
                 await supabase.from('matches').delete().eq('league_id', selectedLeagueId).eq('round_number', ROUND_FINAL);
             }
 
-            const insert = {
+            const inserts: any[] = [];
+            // Partido de IDA
+            inserts.push({
                 league_id: selectedLeagueId,
                 home_team_id: uniqueWinners[0].id,
                 away_team_id: uniqueWinners[1].id,
                 round_number: ROUND_FINAL,
+                leg: 1,
                 start_time: new Date().toISOString(),
                 status: 'scheduled'
-            };
+            });
+            if (liguillaTwoLegged) {
+                inserts.push({
+                    league_id: selectedLeagueId,
+                    home_team_id: uniqueWinners[1].id,
+                    away_team_id: uniqueWinners[0].id,
+                    round_number: ROUND_FINAL,
+                    leg: 2,
+                    start_time: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    status: 'scheduled'
+                });
+            }
 
-            const { error } = await supabase.from('matches').insert(insert);
+            const { error } = await supabase.from('matches').insert(inserts);
             if (error) throw error;
 
             showToast('Gran Final generada', 'success');
@@ -728,7 +864,7 @@ const LiguillaScreen: React.FC = () => {
                 {/* Header Status */}
                 <div className="bg-slate-50 dark:bg-slate-900/50 px-3 py-1.5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50">
                     <span className={`text-[10px] uppercase font-bold tracking-wider ${isLive ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
-                        {title || (isLive ? 'En Vivo' : isFinished ? 'Finalizado' : 'Programado')}
+                        {title || (liguillaTwoLegged ? (match.leg === 2 ? 'Vuelta' : 'Ida') : (isLive ? 'En Vivo' : isFinished ? 'Finalizado' : 'Programado'))}
                     </span>
                     {canEdit && (
                         <div className="flex gap-2">
@@ -843,7 +979,7 @@ const LiguillaScreen: React.FC = () => {
                                         Generar Semis
                                     </button>
                                 )}
-                                {sfMatches.length > 0 && !finalMatch && (
+                                {sfMatches.length > 0 && finalMatches.length === 0 && (
                                     <button
                                         onClick={generateFinal}
                                         disabled={updating}
@@ -902,9 +1038,25 @@ const LiguillaScreen: React.FC = () => {
                                             { h: 3, a: 4 }, // Seed 4 vs 5
                                             { h: 1, a: 6 }, // Seed 2 vs 7
                                             { h: 2, a: 5 }, // Seed 3 vs 6
-                                        ].map((pair) => {
-                                            const match = qfMatches.find(m => m.home_team_id === qualifiedTeams[pair.h].id);
-                                            return match ? <MatchCard key={match.id} match={match} /> : null;
+                                        ].map((pair, idx) => {
+                                            const homeTeam = qualifiedTeams[pair.h];
+                                            const awayTeam = qualifiedTeams[pair.a];
+                                            // Find all matches in this pair
+                                            const pairMatches = qfMatches.filter(m =>
+                                                (m.home_team_id === homeTeam.id && m.away_team_id === awayTeam.id) ||
+                                                (m.home_team_id === awayTeam.id && m.away_team_id === homeTeam.id)
+                                            ).sort((a, b) => (a.leg || 1) - (b.leg || 1));
+                                            if (pairMatches.length === 0) return null;
+                                            return (
+                                                <div key={`qf-${idx}`} className="mb-3">
+                                                    {liguillaTwoLegged && (
+                                                        <div className="text-[10px] text-slate-500 font-bold mb-1 text-center uppercase tracking-widest">
+                                                            {homeTeam.name} vs {awayTeam.name}
+                                                        </div>
+                                                    )}
+                                                    {pairMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                                                </div>
+                                            );
                                         })}
                                     </div>
                                 </div>
@@ -915,7 +1067,28 @@ const LiguillaScreen: React.FC = () => {
                                         <>
                                             <h3 className="text-sm uppercase tracking-widest font-bold text-slate-400 mb-4 text-center">Semifinales</h3>
                                             <div className="flex flex-col gap-8">
-                                                {sfMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                                                {(() => {
+                                                    // Group by pair
+                                                    const seenPairs: Record<string, Match[]> = {};
+                                                    sfMatches.forEach(m => {
+                                                        const key = [m.home_team_id, m.away_team_id].sort().join('_');
+                                                        if (!seenPairs[key]) seenPairs[key] = [];
+                                                        seenPairs[key].push(m);
+                                                    });
+                                                    return Object.values(seenPairs).map((pair, idx) => {
+                                                        const sortedPair = pair.sort((a, b) => (a.leg || 1) - (b.leg || 1));
+                                                        return (
+                                                            <div key={`sf-${idx}`}>
+                                                                {liguillaTwoLegged && (
+                                                                    <div className="text-[10px] text-slate-500 font-bold mb-1 text-center uppercase tracking-widest">
+                                                                        Semifinal {idx + 1}
+                                                                    </div>
+                                                                )}
+                                                                {sortedPair.map(m => <MatchCard key={m.id} match={m} />)}
+                                                            </div>
+                                                        );
+                                                    });
+                                                })()}
                                             </div>
                                         </>
                                     ) : (
@@ -927,10 +1100,13 @@ const LiguillaScreen: React.FC = () => {
 
                                 {/* COL 3: Final */}
                                 <div className="flex-none w-[280px] md:flex-1 flex flex-col justify-center snap-center">
-                                    {finalMatch ? (
+                                    {finalMatches.length > 0 ? (
                                         <>
                                             <h3 className="text-sm uppercase tracking-widest font-bold text-yellow-500 mb-4 text-center">Gran Final</h3>
-                                            <MatchCard match={finalMatch} />
+                                            {(() => {
+                                                const sortedFinals = [...finalMatches].sort((a, b) => (a.leg || 1) - (b.leg || 1));
+                                                return sortedFinals.map(m => <MatchCard key={m.id} match={m} />);
+                                            })()}
                                         </>
                                     ) : (
                                         <div className="h-full border-l-2 border-dashed border-slate-200 dark:border-slate-800 ml-4 flex items-center pl-8">

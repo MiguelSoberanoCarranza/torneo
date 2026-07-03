@@ -13,32 +13,47 @@ const MyLeaguesScreen: React.FC = () => {
         fetchMyLeagues();
     }, []);
 
-    const fetchMyLeagues = async () => {
-        try {
-            setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
+  const fetchMyLeagues = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
 
-            if (!user) {
-                navigate('/admin-login');
-                return;
-            }
+      if (!user) {
+        navigate('/admin-login');
+        return;
+      }
 
-            const { data, error } = await supabase
-                .from('leagues')
-                .select('*')
-                .eq('owner_id', user.id)
-                .order('created_at', { ascending: false });
+      // Check role - admins can see all leagues
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
 
-            if (error) throw error;
+      let query = supabase
+        .from('leagues')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      // Only filter by owner if not admin
+      if (!isAdmin) {
+        query = query.eq('owner_id', user.id);
+      }
 
-            setLeagues(data || []);
-        } catch (error: any) {
-            console.error('Error fetching leagues:', error);
-            showToast('Error al cargar ligas', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setLeagues(data || []);
+    } catch (error: any) {
+      console.error('Error fetching leagues:', error);
+      showToast('Error al cargar ligas', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased min-h-screen pb-24">
@@ -97,6 +112,19 @@ const MyLeaguesScreen: React.FC = () => {
                                     <h3 className="font-bold text-lg truncate group-hover:text-primary transition-colors">{league.name}</h3>
                                     <p className="text-xs text-slate-500 truncate">{league.format ? `Fútbol ${league.format}` : 'Formato no definido'}</p>
                                 </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const slug = league.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + league.id.substring(0, 8);
+                                    const publicUrl = `${window.location.origin}/l/${slug}`;
+                                    navigator.clipboard.writeText(publicUrl);
+                                    alert('Link copiado: ' + publicUrl);
+                                  }}
+                                  className="p-2 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                  title="Copiar link público"
+                                >
+                                  <span className="material-symbols-outlined text-lg">share</span>
+                                </button>
                                 <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
                             </button>
                         ))}
