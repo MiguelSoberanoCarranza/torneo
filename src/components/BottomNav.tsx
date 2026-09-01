@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { filterActiveLeagues } from '../utils/leagues';
 
 const BottomNav: React.FC = () => {
   const [role, setRole] = useState<string | null>(null);
@@ -13,11 +14,13 @@ const BottomNav: React.FC = () => {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         setRole(profile?.role || 'user');
 
-        const { count } = await supabase
+        const { data: ownedLeagues } = await supabase
           .from('leagues')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_id', user.id);
-        setOwnsLeague((count ?? 0) > 0);
+          .select('id, is_active')
+          .eq('owner_id', user.id)
+          .eq('is_active', true);
+
+        setOwnsLeague(filterActiveLeagues(ownedLeagues || []).length > 0);
       } else {
         setRole(null);
         setOwnsLeague(false);

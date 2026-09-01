@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 import { buildSanctionTotals } from '../utils/standings';
+import { filterActiveLeagues } from '../utils/leagues';
 
 interface TeamSanction {
   id: string;
@@ -56,6 +57,7 @@ const SancionesScreen: React.FC = () => {
       .from('leagues')
       .select('*')
       .eq('owner_id', user.id)
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -66,7 +68,7 @@ const SancionesScreen: React.FC = () => {
       return;
     }
 
-    const ownedLeagues = myLeagues || [];
+    const ownedLeagues = filterActiveLeagues(myLeagues || []);
     setLeagues(ownedLeagues);
 
     if (ownedLeagues.length > 0) {

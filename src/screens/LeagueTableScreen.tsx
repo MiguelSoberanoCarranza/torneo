@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 // import { toPng } from 'html-to-image'; // Removed
 import { captureAndDownload } from '../utils/imageExporter';
 import { buildSanctionTotals, calculateStandings } from '../utils/standings';
+import { filterActiveLeagues } from '../utils/leagues';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 
@@ -65,7 +66,11 @@ const LeagueTableScreen: React.FC = () => {
           myFollows = follows.map(f => f.league_id);
           // Explicitly fetch details of followed leagues
           if (myFollows.length > 0) {
-            const { data: followedLeagues } = await supabase.from('leagues').select('*').in('id', myFollows);
+            const { data: followedLeagues } = await supabase
+              .from('leagues')
+              .select('*')
+              .in('id', myFollows)
+              .eq('is_active', true);
             if (followedLeagues) currentLeagues = [...currentLeagues, ...followedLeagues];
           }
         }
@@ -74,7 +79,8 @@ const LeagueTableScreen: React.FC = () => {
         const { data: myLeagues } = await supabase
           .from('leagues')
           .select('*')
-          .eq('owner_id', user.id);
+          .eq('owner_id', user.id)
+          .eq('is_active', true);
 
         if (myLeagues) {
           // Merge avoiding duplicates
@@ -89,6 +95,7 @@ const LeagueTableScreen: React.FC = () => {
       const { data: publicLeagues } = await supabase
         .from('leagues')
         .select('*')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -111,6 +118,8 @@ const LeagueTableScreen: React.FC = () => {
 
         return 0;
       });
+
+      currentLeagues = filterActiveLeagues(currentLeagues);
 
       if (currentLeagues.length > 0) {
         setLeagues(currentLeagues);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { seedLeague } from '../utils/seeder';
+import { isLeagueActive } from '../utils/leagues';
 
 const LeagueManagementScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +31,15 @@ const LeagueManagementScreen: React.FC = () => {
           .single();
 
         if (leagueError) throw leagueError;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        const isOwner = user && leagueData.owner_id === user.id;
+
+        if (!isLeagueActive(leagueData) && !isOwner) {
+          setLeague(null);
+          return;
+        }
+
         setLeague(leagueData);
 
         // Fetch Teams
@@ -107,8 +117,10 @@ const LeagueManagementScreen: React.FC = () => {
   }
 
   if (!league) {
-    return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">Liga no encontrada</div>;
+    return <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">Liga no encontrada o no disponible</div>;
   }
+
+  const leagueInactive = !isLeagueActive(league);
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased selection:bg-primary selection:text-white h-screen overflow-hidden flex flex-col">
@@ -129,6 +141,13 @@ const LeagueManagementScreen: React.FC = () => {
             <span className="material-symbols-outlined text-primary text-2xl">edit_square</span>
           </button>
         </div>
+
+        {leagueInactive && (
+          <div className="mx-4 mt-4 p-3 rounded-xl bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm font-medium flex items-center gap-2">
+            <span className="material-symbols-outlined text-lg">visibility_off</span>
+            Esta liga está desactivada y no es visible en el sistema. Actívala desde Mis Ligas.
+          </div>
+        )}
 
         {/* League Header Profile */}
         <div className="px-4 pt-6 pb-2">
