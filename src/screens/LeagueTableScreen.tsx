@@ -585,8 +585,18 @@ const LeagueTableScreen: React.FC = () => {
                               {team.gd > 0 ? `+${team.gd}` : team.gd}
                             </td>
                             <td className="px-2 py-2 text-center">
-                              <div className="flex items-center justify-center h-12 w-16 mx-auto rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', lineHeight: '1' }}>
-                                <span>{team.points}</span>
+                              <div className="flex flex-col items-center justify-center min-h-12 mx-auto">
+                                <div className="flex items-center justify-center h-12 w-16 rounded-lg border font-black text-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff', lineHeight: '1' }}>
+                                  <span>{team.points}</span>
+                                </div>
+                                {team.sanctionPoints !== 0 && (
+                                  <span
+                                    className="text-[10px] font-bold mt-1 uppercase tracking-wide"
+                                    style={{ color: team.sanctionPoints < 0 ? '#f87171' : '#34d399' }}
+                                  >
+                                    {team.sanctionPoints > 0 ? '+' : ''}{team.sanctionPoints} san.
+                                  </span>
+                                )}
                               </div>
                             </td>
                           </tr>
