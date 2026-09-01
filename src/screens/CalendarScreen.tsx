@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 // import { toPng } from 'html-to-image'; // Removed
 import { captureAndDownload } from '../utils/imageExporter';
+import { filterActiveLeagues } from '../utils/leagues';
 
 interface Match {
   id: string;
@@ -89,18 +90,31 @@ const CalendarScreen: React.FC = () => {
         if (follows) {
           myFollows = follows.map(f => f.league_id);
           if (myFollows.length > 0) {
-            const { data: followed } = await supabase.from('leagues').select('id, name, owner_id').in('id', myFollows);
+            const { data: followed } = await supabase
+              .from('leagues')
+              .select('id, name, owner_id')
+              .in('id', myFollows)
+              .eq('is_active', true);
             if (followed) currentLeagues = [...currentLeagues, ...followed];
           }
         }
-        const { data: owned } = await supabase.from('leagues').select('id, name, owner_id').eq('owner_id', user.id);
+        const { data: owned } = await supabase
+          .from('leagues')
+          .select('id, name, owner_id')
+          .eq('owner_id', user.id)
+          .eq('is_active', true);
         if (owned) {
           const existingIds = new Set(currentLeagues.map(l => l.id));
           owned.forEach(l => !existingIds.has(l.id) && currentLeagues.push(l));
         }
       }
 
-      const { data: publicLeagues } = await supabase.from('leagues').select('id, name, owner_id').order('created_at', { ascending: false }).limit(20);
+      const { data: publicLeagues } = await supabase
+        .from('leagues')
+        .select('id, name, owner_id')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(20);
       if (publicLeagues) {
         const existingIds = new Set(currentLeagues.map(l => l.id));
         publicLeagues.forEach(l => !existingIds.has(l.id) && currentLeagues.push(l));
@@ -116,6 +130,8 @@ const CalendarScreen: React.FC = () => {
         if (aOwner !== bOwner) return bOwner - aOwner;
         return 0;
       });
+
+      currentLeagues = filterActiveLeagues(currentLeagues);
 
       if (currentLeagues.length > 0) {
         setLeagues(currentLeagues);

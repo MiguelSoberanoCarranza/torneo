@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 import { buildSanctionTotals, calculateStandings } from '../utils/standings';
+import { filterActiveLeagues } from '../utils/leagues';
 import { toPng } from 'html-to-image';
 
 interface Team {
@@ -107,14 +108,15 @@ const LiguillaScreen: React.FC = () => {
             const { data: publicLeagues } = await supabase
                 .from('leagues')
                 .select('*')
+                .eq('is_active', true)
                 .order('created_at', { ascending: false })
                 .limit(20);
 
             if (publicLeagues) {
-                setLeagues(publicLeagues);
-                if (publicLeagues.length > 0) {
-                    // Try to restore selection or default to first
-                    setSelectedLeagueId(publicLeagues[0].id);
+                const activeLeagues = filterActiveLeagues(publicLeagues);
+                setLeagues(activeLeagues);
+                if (activeLeagues.length > 0) {
+                    setSelectedLeagueId(activeLeagues[0].id);
                 }
             }
         } catch (error) {

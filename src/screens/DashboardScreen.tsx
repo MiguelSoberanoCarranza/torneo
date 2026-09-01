@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { filterActiveLeagues } from '../utils/leagues';
 
 const DashboardScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -106,7 +107,8 @@ const DashboardScreen: React.FC = () => {
         const { data: myLeagues } = await supabase
           .from('leagues')
           .select('*')
-          .eq('owner_id', user.id);
+          .eq('owner_id', user.id)
+          .eq('is_active', true);
 
         if (myLeagues) currentLeagues = [...currentLeagues, ...myLeagues];
 
@@ -115,7 +117,8 @@ const DashboardScreen: React.FC = () => {
           const { data: followedLeagues } = await supabase
             .from('leagues')
             .select('*')
-            .in('id', myFollows);
+            .in('id', myFollows)
+            .eq('is_active', true);
 
           if (followedLeagues) {
             // Merge avoiding duplicates
@@ -133,6 +136,7 @@ const DashboardScreen: React.FC = () => {
       const { data: publicLeagues } = await supabase
         .from('leagues')
         .select('*')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -161,7 +165,9 @@ const DashboardScreen: React.FC = () => {
       });
 
       // Filter out any invalid leagues (no name)
-      currentLeagues = currentLeagues.filter(l => l.name && l.name.trim().length > 0);
+      currentLeagues = filterActiveLeagues(currentLeagues).filter(
+        (l) => l.name && l.name.trim().length > 0
+      );
 
       setLeagues(currentLeagues);
 

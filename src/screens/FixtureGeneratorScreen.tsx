@@ -32,6 +32,7 @@ const FixtureGeneratorScreen: React.FC = () => {
         .from('leagues')
         .select('id, name, match_duration')
         .eq('owner_id', user.id)
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (data) {
