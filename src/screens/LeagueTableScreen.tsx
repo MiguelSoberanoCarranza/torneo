@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 // import { toPng } from 'html-to-image'; // Removed
 import { captureAndDownload } from '../utils/imageExporter';
+import { buildSanctionTotals, calculateStandings } from '../utils/standings';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 
@@ -151,49 +152,13 @@ const LeagueTableScreen: React.FC = () => {
 
       // --- CALCULATE STANDINGS ---
       if (teams) {
-        const stats = teams.map(team => {
-          let played = 0, won = 0, drawn = 0, lost = 0, gf = 0, ga = 0;
+        const { data: sanctionsData } = await supabase
+          .from('team_sanctions')
+          .select('team_id, points_delta')
+          .eq('league_id', leagueId);
 
-          matches.forEach(match => {
-            let isHome = match.home_team_id === team.id;
-            let isAway = match.away_team_id === team.id;
-
-            if (isHome || isAway) {
-              const homeScore = match.home_score ?? 0;
-              const awayScore = match.away_score ?? 0;
-
-              if ((isHome && homeScore !== null && awayScore !== null) || (isAway && homeScore !== null && awayScore !== null)) {
-                played++;
-
-                // Special Case: Double Default (-1, -1)
-                if (homeScore === -1 && awayScore === -1) {
-                  lost++;
-                  // No goals added for double default
-                } else {
-                  const teamScore = isHome ? homeScore : awayScore;
-                  const opponentScore = isHome ? awayScore : homeScore;
-
-                  // Ensure we don't add negative scores if somehow they occur
-                  gf += Math.max(0, teamScore);
-                  ga += Math.max(0, opponentScore);
-
-                  if (teamScore > opponentScore) won++;
-                  else if (teamScore === opponentScore) drawn++;
-                  else lost++;
-                }
-              }
-            }
-          });
-
-          return {
-            ...team,
-            played, won, drawn, lost, gf, ga,
-            gd: gf - ga,
-            points: (won * 3) + (drawn * 1)
-          };
-        });
-
-        stats.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+        const sanctionTotals = buildSanctionTotals(sanctionsData || []);
+        const stats = calculateStandings(teams, matches, sanctionTotals);
         setStandings(stats);
       }
 
@@ -416,7 +381,12 @@ const LeagueTableScreen: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-2 md:px-4 py-3 text-center font-black text-sm md:text-lg text-primary bg-slate-50 dark:bg-white/5">
-                            {team.points}
+                            <div>{team.points}</div>
+                            {team.sanctionPoints !== 0 && (
+                              <div className={`text-[10px] font-bold ${team.sanctionPoints < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                {team.sanctionPoints > 0 ? '+' : ''}{team.sanctionPoints} san.
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

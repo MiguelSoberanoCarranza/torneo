@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
+import { buildSanctionTotals, calculateStandings } from '../utils/standings';
 import { toPng } from 'html-to-image';
 
 interface Team {
@@ -16,7 +17,9 @@ interface Team {
     drawn: number;
     lost: number;
     ga: number;
-    rank?: number; // Store the original seed/rank
+    matchPoints?: number;
+    sanctionPoints?: number;
+    rank?: number;
 }
 
 interface Match {
@@ -148,43 +151,21 @@ const LiguillaScreen: React.FC = () => {
 
             // Process Regular Season Standings
             if (teams && regularMatches) {
-                const stats = teams.map(team => {
-                    let played = 0, won = 0, drawn = 0, lost = 0, gf = 0, ga = 0;
-                    regularMatches.forEach(match => {
-                        let isHome = match.home_team_id === team.id;
-                        let isAway = match.away_team_id === team.id;
-                        if (isHome || isAway) {
-                            const homeScore = match.home_score ?? 0;
-                            const awayScore = match.away_score ?? 0;
-                            played++;
+                const { data: sanctionsData } = await supabase
+                    .from('team_sanctions')
+                    .select('team_id, points_delta')
+                    .eq('league_id', leagueId);
 
-                            // Special Case: Double Default (-1, -1)
-                            if (homeScore === -1 && awayScore === -1) {
-                                lost++;
-                            } else {
-                                const teamScore = isHome ? homeScore : awayScore;
-                                const opponentScore = isHome ? awayScore : homeScore;
-                                gf += Math.max(0, teamScore);
-                                ga += Math.max(0, opponentScore);
-                                if (teamScore > opponentScore) won++;
-                                else if (teamScore === opponentScore) drawn++;
-                                else lost++;
-                            }
-                        }
-                    });
-                    return {
-                        ...team,
-                        played, won, drawn, lost, gf, ga,
-                        gd: gf - ga,
-                        points: (won * 3) + (drawn * 1)
-                    };
-                });
-                // Sort Standings
-                stats.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+                const sanctionTotals = buildSanctionTotals(sanctionsData || []);
+                const stats = calculateStandings(teams, regularMatches, sanctionTotals);
 
                 // Assign Ranks (1-based index)
-                const rankedStats = stats.map((t, index) => ({ ...t, rank: index + 1 }));
-                setQualifiedTeams(rankedStats.slice(0, 8)); // Top 8
+                const rankedStats = stats.map((t, index) => ({
+                    ...t,
+                    shield_url: t.shield_url ?? null,
+                    rank: index + 1,
+                }));
+                setQualifiedTeams(rankedStats.slice(0, 8) as Team[]);
             }
 
             // Process Playoff Matches

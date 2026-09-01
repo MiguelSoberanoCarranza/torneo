@@ -16,6 +16,7 @@ import RefereeMatchControlScreen from './screens/RefereeMatchControlScreen';
 import MyLeaguesScreen from './screens/MyLeaguesScreen';
 import MyTeamScreen from './screens/MyTeamScreen';
 import MatchDetailsScreen from './screens/MatchDetailsScreen'; // Import
+import SancionesScreen from './screens/SancionesScreen';
 import App from './App';
 import MainLayout from './components/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
           {
             element: <ProtectedRoute />,
             children: [
+              { path: '/sanciones', element: <SancionesScreen /> },
               { path: '/my-leagues', element: <MyLeaguesScreen /> }, // New Route
               { path: '/my-team', element: <MyTeamScreen /> },
               { path: '/create-league', element: <CreateLeagueScreen /> },
