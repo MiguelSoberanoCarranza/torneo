@@ -28,7 +28,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 CREATE OR REPLACE FUNCTION public.can_manage_team_sanctions(league_uuid UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN public.is_superadmin() OR public.is_league_owner(league_uuid);
+  RETURN public.is_league_owner(league_uuid);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 

@@ -44,12 +44,12 @@ const router = createBrowserRouter([
           { path: '/league/:id', element: <LeagueManagementScreen /> },
           { path: '/match-details-live', element: <MatchDetailsLiveScreen /> },
           { path: '/liguilla', element: <LiguillaScreen /> },
-          { path: '/sanciones', element: <SancionesScreen /> },
 
           // Protected Routes
           {
             element: <ProtectedRoute />,
             children: [
+              { path: '/sanciones', element: <SancionesScreen /> },
               { path: '/my-leagues', element: <MyLeaguesScreen /> }, // New Route
               { path: '/my-team', element: <MyTeamScreen /> },
               { path: '/create-league', element: <CreateLeagueScreen /> },

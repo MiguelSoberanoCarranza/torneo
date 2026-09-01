@@ -46,67 +46,33 @@ const SancionesScreen: React.FC = () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    let currentLeagues: any[] = [];
-    let myFollows: string[] = [];
-
-    if (user) {
-      const { data: follows } = await supabase
-        .from('league_followers')
-        .select('league_id')
-        .eq('user_id', user.id);
-
-      if (follows) {
-        myFollows = follows.map((f) => f.league_id);
-        if (myFollows.length > 0) {
-          const { data: followedLeagues } = await supabase
-            .from('leagues')
-            .select('*')
-            .in('id', myFollows);
-          if (followedLeagues) currentLeagues = [...currentLeagues, ...followedLeagues];
-        }
-      }
-
-      const { data: myLeagues } = await supabase
-        .from('leagues')
-        .select('*')
-        .eq('owner_id', user.id);
-
-      if (myLeagues) {
-        const existingIds = new Set(currentLeagues.map((l) => l.id));
-        myLeagues.forEach((l) => {
-          if (!existingIds.has(l.id)) currentLeagues.push(l);
-        });
-      }
+    if (!user) {
+      setLeagues([]);
+      setLoading(false);
+      return;
     }
 
-    const { data: publicLeagues } = await supabase
+    const { data: myLeagues, error } = await supabase
       .from('leagues')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false });
 
-    if (publicLeagues) {
-      const existingIds = new Set(currentLeagues.map((l) => l.id));
-      publicLeagues.forEach((l) => {
-        if (!existingIds.has(l.id)) currentLeagues.push(l);
-      });
+    if (error) {
+      console.error('Error fetching owned leagues', error);
+      showToast('Error al cargar tus ligas', 'error');
+      setLeagues([]);
+      setLoading(false);
+      return;
     }
 
-    currentLeagues.sort((a, b) => {
-      const aFollow = myFollows.includes(a.id) ? 1 : 0;
-      const bFollow = myFollows.includes(b.id) ? 1 : 0;
-      if (aFollow !== bFollow) return bFollow - aFollow;
+    const ownedLeagues = myLeagues || [];
+    setLeagues(ownedLeagues);
 
-      const aOwner = user && a.owner_id === user.id ? 1 : 0;
-      const bOwner = user && b.owner_id === user.id ? 1 : 0;
-      if (aOwner !== bOwner) return bOwner - aOwner;
-
-      return 0;
-    });
-
-    if (currentLeagues.length > 0) {
-      setLeagues(currentLeagues);
-      setSelectedLeagueId((prev) => prev || currentLeagues[0].id);
+    if (ownedLeagues.length > 0) {
+      setSelectedLeagueId((prev) =>
+        prev && ownedLeagues.some((l) => l.id === prev) ? prev : ownedLeagues[0].id
+      );
     } else {
       setLoading(false);
     }
@@ -123,18 +89,8 @@ const SancionesScreen: React.FC = () => {
         .eq('id', leagueId)
         .single();
 
-      let isSuperAdmin = false;
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        isSuperAdmin = profile?.role === 'superadmin';
-      }
-
-      const isOwner = user && leagueData?.owner_id === user.id;
-      setCanManage(Boolean(isSuperAdmin || isOwner));
+      const isOwner = Boolean(user && leagueData?.owner_id === user.id);
+      setCanManage(isOwner);
 
       const { data: teamsData, error: teamsError } = await supabase
         .from('teams')
@@ -280,21 +236,32 @@ const SancionesScreen: React.FC = () => {
                   Ajustes disciplinarios de puntos por equipo
                 </p>
               </div>
-              <select
-                className="bg-slate-100 dark:bg-slate-800 border-none text-sm font-semibold rounded-lg p-2 max-w-[150px] truncate outline-none focus:ring-2 focus:ring-primary"
-                value={selectedLeagueId || ''}
-                onChange={(e) => setSelectedLeagueId(e.target.value)}
-              >
-                {leagues.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
+              {leagues.length > 0 && (
+                <select
+                  className="bg-slate-100 dark:bg-slate-800 border-none text-sm font-semibold rounded-lg p-2 max-w-[150px] truncate outline-none focus:ring-2 focus:ring-primary"
+                  value={selectedLeagueId || ''}
+                  onChange={(e) => setSelectedLeagueId(e.target.value)}
+                >
+                  {leagues.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
 
+        {!loading && leagues.length === 0 ? (
+          <div className="max-w-3xl mx-auto w-full p-8 flex flex-col items-center justify-center text-center gap-3">
+            <span className="material-symbols-outlined text-5xl text-slate-300">gavel</span>
+            <h3 className="text-lg font-bold">Acceso restringido</h3>
+            <p className="text-sm text-slate-500 max-w-sm">
+              Solo los administradores de liga pueden gestionar sanciones disciplinarias.
+            </p>
+          </div>
+        ) : (
         <div className="max-w-3xl mx-auto w-full p-4 flex flex-col gap-4">
           {canManage && (
             <button
@@ -402,6 +369,7 @@ const SancionesScreen: React.FC = () => {
             )}
           </div>
         </div>
+        )}
       </div>
 
       {showForm && (

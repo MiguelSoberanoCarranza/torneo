@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 
 const BottomNav: React.FC = () => {
   const [role, setRole] = useState<string | null>(null);
+  const [ownsLeague, setOwnsLeague] = useState(false);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -11,8 +12,15 @@ const BottomNav: React.FC = () => {
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         setRole(profile?.role || 'user');
+
+        const { count } = await supabase
+          .from('leagues')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', user.id);
+        setOwnsLeague((count ?? 0) > 0);
       } else {
         setRole(null);
+        setOwnsLeague(false);
       }
     };
 
@@ -35,8 +43,11 @@ const BottomNav: React.FC = () => {
     { name: 'Inicio', icon: 'home', path: '/' },
     { name: 'Tabla', icon: 'table_chart', path: '/league-table' },
     { name: 'Liguilla', icon: 'workspace_premium', path: '/liguilla' },
-    { name: 'Sanciones', icon: 'gavel', path: '/sanciones' },
   ];
+
+  if (ownsLeague) {
+    displayItems.push({ name: 'Sanciones', icon: 'gavel', path: '/sanciones' });
+  }
 
   if (role && ['admin', 'superadmin', 'referee'].includes(role)) {
     displayItems.push({ name: 'Calendario', icon: 'calendar_month', path: '/calendar' });
