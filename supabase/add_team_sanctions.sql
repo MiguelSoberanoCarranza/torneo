@@ -15,20 +15,16 @@ CREATE INDEX IF NOT EXISTS idx_team_sanctions_team_id ON public.team_sanctions(t
 
 ALTER TABLE public.team_sanctions ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.is_league_owner(league_uuid UUID)
+-- No recrear is_league_owner: puede existir ya en la BD con otro nombre de parámetro.
+DROP FUNCTION IF EXISTS public.can_manage_team_sanctions(uuid);
+
+CREATE OR REPLACE FUNCTION public.can_manage_team_sanctions(p_league_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.leagues
-    WHERE id = league_uuid AND owner_id = auth.uid()
+    WHERE id = p_league_id AND owner_id = auth.uid()
   );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-CREATE OR REPLACE FUNCTION public.can_manage_team_sanctions(league_uuid UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN public.is_league_owner(league_uuid);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
