@@ -35,11 +35,14 @@ const BottomNav: React.FC = () => {
     { name: 'Inicio', icon: 'home', path: '/' },
     { name: 'Tabla', icon: 'table_chart', path: '/league-table' },
     { name: 'Liguilla', icon: 'workspace_premium', path: '/liguilla' },
+    { name: 'Sanciones', icon: 'gavel', path: '/sanciones' },
   ];
 
   if (role && ['admin', 'superadmin', 'referee'].includes(role)) {
     displayItems.push({ name: 'Calendario', icon: 'calendar_month', path: '/calendar' });
   }
+
+  if (role === 'admin' || role === 'superadmin') {
 
   if (role === 'admin' || role === 'superadmin') {
     displayItems.push({ name: 'Ligas', icon: 'emoji_events', path: '/my-leagues' });
