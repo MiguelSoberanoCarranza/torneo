@@ -60,7 +60,7 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
           .from('teams')
           .select()
           .eq('league_id', widget.leagueId)
-          .order('name');
+          .order('name', ascending: true);
       _teams = teams.map(Team.fromJson).toList();
       final matches = await db
           .from('matches')
@@ -82,7 +82,7 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
           .from('players')
           .select('*, teams(name, shield_url)')
           .inFilter('team_id', _teams.map((t) => t.id).toList())
-          .order('name');
+          .order('name', ascending: true);
       if (mounted) setState(() => _players = data.map(Player.fromJson).toList());
     }
     if (mode == 'Árbitros' && _referees == null) {

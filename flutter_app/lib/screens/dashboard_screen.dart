@@ -67,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           .from('match_events')
           .select('*, player:players!match_events_player_id_fkey(name)')
           .inFilter('match_id', _live.map((m) => m.id).toList())
-          .order('created_at');
+          .order('created_at', ascending: true);
       for (final e in events.map(MatchEvent.fromJson)) {
         _liveEvents.putIfAbsent(e.matchId, () => []).add(e);
       }
@@ -79,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .eq('league_id', id)
         .eq('status', 'scheduled')
         .gt('start_time', DateTime.now().toUtc().toIso8601String())
-        .order('start_time')
+        .order('start_time', ascending: true)
         .limit(10);
     _upcoming = upcoming.map(MatchModel.fromJson).toList();
 

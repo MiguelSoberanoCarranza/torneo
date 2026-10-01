@@ -54,7 +54,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         .from('teams')
         .select('id, name')
         .eq('league_id', _leagueId!)
-        .order('name');
+        .order('name', ascending: true);
     if (!mounted) return;
     setState(() {
       _teams = data.map(Team.fromJson).toList();

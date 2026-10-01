@@ -16,7 +16,7 @@ Future<LiguillaData> fetchLiguilla(String leagueId) async {
       .select()
       .eq('league_id', leagueId)
       .gte('round_number', 100)
-      .order('round_number');
+      .order('round_number', ascending: true);
   final matches = playoff.map(MatchModel.fromJson).toList();
   return LiguillaData(
     qualified: qualified,

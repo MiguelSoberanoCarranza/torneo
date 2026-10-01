@@ -87,7 +87,7 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
         .from('matches')
         .select(matchWithTeamsSelect)
         .eq('league_id', widget.leagueId)
-        .order('start_time');
+        .order('start_time', ascending: true);
     final matches = rows.map(MatchModel.fromJson).toList();
     final liveIds = matches.where((m) => m.isLive).map((m) => m.id).toList();
     final events = <String, List<MatchEvent>>{};
@@ -96,7 +96,7 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
           .from('match_events')
           .select('*, player:players!match_events_player_id_fkey(name)')
           .inFilter('match_id', liveIds)
-          .order('created_at');
+          .order('created_at', ascending: true);
       for (final e in evs.map(MatchEvent.fromJson)) {
         events.putIfAbsent(e.matchId, () => []).add(e);
       }

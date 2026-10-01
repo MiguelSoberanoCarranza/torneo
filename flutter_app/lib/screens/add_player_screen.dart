@@ -44,7 +44,7 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
         .from('teams')
         .select('id, name')
         .eq('league_id', widget.leagueId)
-        .order('name');
+        .order('name', ascending: true);
     if (!mounted) return;
     setState(() {
       _teams = data.map(Team.fromJson).toList();

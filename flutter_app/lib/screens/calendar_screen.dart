@@ -69,12 +69,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
             'away_team:teams!matches_away_team_id_fkey(name, shield_url), '
             'league:leagues(name)')
         .eq('league_id', id)
-        .order('start_time');
+        .order('start_time', ascending: true);
     final teams = await db
         .from('teams')
         .select('id, name')
         .eq('league_id', id)
-        .order('name');
+        .order('name', ascending: true);
     if (!mounted) return;
     setState(() {
       _matches = rows.map(MatchModel.fromJson).toList();

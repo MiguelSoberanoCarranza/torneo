@@ -102,10 +102,12 @@ class LiveMatchCard extends StatelessWidget {
                   alignment: g.teamId == match.homeTeamId
                       ? Alignment.centerLeft
                       : Alignment.centerRight,
-                  child: Text(
-                    '⚽ ${g.playerName ?? 'Jugador'} ${g.minute ?? ''}\'',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.sports_soccer, size: 14),
+                    const SizedBox(width: 4),
+                    Text("${g.playerName ?? 'Jugador'} ${g.minute ?? ''}'",
+                        style: const TextStyle(fontSize: 13)),
+                  ]),
                 ),
             ],
           ]),

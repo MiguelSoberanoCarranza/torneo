@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Paleta tomada de tailwind.config.js de la app React.
 class AppColors {
@@ -25,6 +24,7 @@ class AppTheme {
     final base = ThemeData(
       brightness: Brightness.dark,
       useMaterial3: true,
+      fontFamily: 'Lexend',
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         brightness: Brightness.dark,
@@ -34,7 +34,6 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.backgroundDark,
     );
     return base.copyWith(
-      textTheme: GoogleFonts.lexendTextTheme(base.textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.backgroundDark,
         elevation: 0,

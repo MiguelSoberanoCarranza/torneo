@@ -82,7 +82,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
           .from('players')
           .select()
           .eq('team_id', widget.teamId!)
-          .order('number');
+          .order('number', ascending: true);
       _players = players.map(Player.fromJson).toList();
     } catch (e) {
       if (mounted) showToast(context, errorMessage(e), ToastType.error);

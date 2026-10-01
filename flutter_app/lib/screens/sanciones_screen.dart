@@ -53,7 +53,7 @@ class _SancionesScreenState extends State<SancionesScreen> {
           .from('teams')
           .select('id, name, shield_url')
           .eq('league_id', id)
-          .order('name');
+          .order('name', ascending: true);
       _teams = teams.map(Team.fromJson).toList();
       final sanctions = await db
           .from('team_sanctions')
