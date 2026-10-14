@@ -71,8 +71,21 @@ class AppTheme {
           minimumSize: const Size.fromHeight(52),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          // fontFamily explícito: un textStyle de botón no hereda la fuente del tema.
+          textStyle: const TextStyle(
+              fontFamily: 'Lexend', fontWeight: FontWeight.bold, fontSize: 16),
         ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          side: const BorderSide(color: AppColors.borderDark),
+        ),
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        side: const BorderSide(color: AppColors.borderDark),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

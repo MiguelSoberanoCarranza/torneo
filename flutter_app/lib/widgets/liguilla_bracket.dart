@@ -89,8 +89,8 @@ class LiguillaBracket extends StatelessWidget {
     final cols = [
       column('Cuartos de Final', qfOrdered, 'Pendiente'),
       column('Semifinales', data.sf, 'Próximamente'),
-      column('Gran Final',
-          data.finalMatch == null ? [] : [data.finalMatch!], 'Próximamente'),
+      column('Gran Final', data.finalMatch == null ? [] : [data.finalMatch!],
+          'Próximamente'),
     ];
 
     return LayoutBuilder(builder: (context, c) {

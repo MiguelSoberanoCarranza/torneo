@@ -34,8 +34,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String? get _role => session.role;
   League? get _league => _leagues.where((l) => l.id == _selectedId).firstOrNull;
   bool get _isOwner => _uid != null && _league?.ownerId == _uid;
-  bool get _canOperate =>
-      _role == 'admin' || _role == 'referee' || _isOwner;
+  bool get _canOperate => _role == 'admin' || _role == 'referee' || _isOwner;
   bool get _canManage => _role == 'admin' || _isOwner;
 
   @override
@@ -46,13 +45,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _init() async {
     try {
-      if (session.profile == null && session.isLoggedIn) await session.refresh();
+      if (session.profile == null && session.isLoggedIn) {
+        await session.refresh();
+      }
       final res = await fetchSelectableLeagues();
       _leagues = res.leagues;
       _selectedId = _leagues.isNotEmpty ? _leagues.first.id : null;
       await _loadLeagueData();
+      _nextRoundOnly = _nextRound != 0;
     } catch (e) {
-      if (mounted) showToast(context, 'Error al cargar partidos', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al cargar partidos', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -136,8 +140,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   LabeledField(
                     label: 'Jornada',
                     child: TextField(
-                        controller: round,
-                        keyboardType: TextInputType.number),
+                        controller: round, keyboardType: TextInputType.number),
                   ),
                   LabeledField(
                     label: 'Local',
@@ -161,7 +164,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Expanded(
                       child: LabeledField(
                         label: 'Fecha',
-                        child: OutlinedButton(
+                        child: PickerField(
+                          icon: Icons.event,
                           onPressed: () async {
                             final d = await showDatePicker(
                               context: ctx,
@@ -179,7 +183,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Expanded(
                       child: LabeledField(
                         label: 'Hora',
-                        child: OutlinedButton(
+                        child: PickerField(
+                          icon: Icons.schedule,
                           onPressed: () async {
                             final t = await showTimePicker(
                                 context: ctx, initialTime: time);
@@ -259,7 +264,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       return false;
     }
     if (homeId == awayId) {
-      showToast(context, 'No puedes seleccionar el mismo equipo', ToastType.error);
+      showToast(
+          context, 'No puedes seleccionar el mismo equipo', ToastType.error);
       return false;
     }
     setState(() => _updating = true);
@@ -274,15 +280,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
       };
       if (editing == null) {
         await db.from('matches').insert({...data, 'status': 'scheduled'});
-        if (mounted) showToast(context, 'Partido creado exitosamente', ToastType.success);
+        if (mounted) {
+          showToast(context, 'Partido creado exitosamente', ToastType.success);
+        }
       } else {
         await db.from('matches').update(data).eq('id', editing.id);
-        if (mounted) showToast(context, 'Partido actualizado', ToastType.success);
+        if (mounted) {
+          showToast(context, 'Partido actualizado', ToastType.success);
+        }
       }
       await _loadLeagueData();
       return true;
     } catch (e) {
-      if (mounted) showToast(context, 'Error al guardar: ${errorMessage(e)}', ToastType.error);
+      if (mounted) {
+        showToast(
+            context, 'Error al guardar: ${errorMessage(e)}', ToastType.error);
+      }
       return false;
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -316,14 +329,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     try {
       await db
           .from('matches')
-          .update({'status': 'scheduled', 'home_score': 0, 'away_score': 0})
-          .eq('id', m.id);
+          .update({'status': 'scheduled', 'home_score': 0, 'away_score': 0}).eq(
+              'id', m.id);
       await db.from('match_events').delete().eq('match_id', m.id);
       setState(() {
         final i = _matches.indexWhere((x) => x.id == m.id);
         if (i >= 0) {
-          _matches[i] = m.merge(
-              {'status': 'scheduled', 'home_score': 0, 'away_score': 0});
+          _matches[i] = m
+              .merge({'status': 'scheduled', 'home_score': 0, 'away_score': 0});
         }
       });
       if (mounted) showToast(context, 'Partido reiniciado', ToastType.success);
@@ -430,7 +443,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: white)),
         const SizedBox(width: 6),
-        TeamShield(url: m.homeTeam?.shieldUrl, name: m.homeTeam?.name, size: 30),
+        TeamShield(
+            url: m.homeTeam?.shieldUrl, name: m.homeTeam?.name, size: 30),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(
@@ -440,7 +454,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             style: white,
           ),
         ),
-        TeamShield(url: m.awayTeam?.shieldUrl, name: m.awayTeam?.name, size: 30),
+        TeamShield(
+            url: m.awayTeam?.shieldUrl, name: m.awayTeam?.name, size: 30),
         const SizedBox(width: 6),
         Expanded(
             child: Text(m.awayTeam?.name ?? '',
@@ -560,7 +575,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Row(children: [
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Jornada $round',
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -601,19 +617,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               : '${m.homeScore ?? 0} - ${m.awayScore ?? 0}',
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
         ),
-        if (m.isFinished && _canOperate)
-          Wrap(spacing: 4, children: [
-            TextButton.icon(
-              onPressed: _updating ? null : () => _resetMatch(m),
-              icon: const Icon(Icons.restart_alt, size: 16),
-              label: const Text('Reiniciar', style: TextStyle(fontSize: 12)),
-            ),
-            TextButton.icon(
-              onPressed: () => _manual(m),
-              icon: const Icon(Icons.edit_note, size: 16),
-              label: const Text('Editar', style: TextStyle(fontSize: 12)),
-            ),
-          ]),
       ]);
     } else if (_canOperate && m.isScheduled) {
       center = Column(children: [
@@ -656,6 +659,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text(formatTime(m.startTime),
                     style: const TextStyle(color: AppColors.textSecondary)),
                 const Spacer(),
+                // Acciones de partido finalizado en un menú (antes eran dos
+                // enlaces dentro del marcador y saturaban la tarjeta).
+                if (m.isFinished && _canOperate)
+                  PopupMenuButton<String>(
+                    tooltip: 'Acciones',
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    onSelected: (v) =>
+                        v == 'edit' ? _manual(m) : _resetMatch(m),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                          value: 'edit',
+                          child: ListTile(
+                              leading: Icon(Icons.edit_note),
+                              title: Text('Editar resultado'))),
+                      PopupMenuItem(
+                          value: 'reset',
+                          child: ListTile(
+                              leading: Icon(Icons.restart_alt,
+                                  color: AppColors.danger),
+                              title: Text('Reiniciar partido'))),
+                    ],
+                  ),
                 if (m.isScheduled && _canManage)
                   IconButton(
                     visualDensity: VisualDensity.compact,
@@ -674,7 +699,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: m.isLive ? AppColors.live : AppColors.textSecondary)),
+                      color:
+                          m.isLive ? AppColors.live : AppColors.textSecondary)),
             ]),
           ),
         ),

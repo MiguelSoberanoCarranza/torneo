@@ -27,7 +27,8 @@ class MainShell extends StatelessWidget {
       items.add(const _NavItem('Sanciones', Icons.gavel, '/sanciones'));
     }
     if (session.isStaff) {
-      items.add(const _NavItem('Calendario', Icons.calendar_month, '/calendar'));
+      items
+          .add(const _NavItem('Calendario', Icons.calendar_month, '/calendar'));
     }
     if (session.isAdmin) {
       items.add(const _NavItem('Ligas', Icons.emoji_events, '/my-leagues'));

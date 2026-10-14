@@ -67,8 +67,8 @@ List<FixtureMatch> generateRoundRobin({
       matches.add(FixtureMatch(
         homeTeamId: home,
         awayTeamId: away,
-        startTime: DateTime(current.year, current.month, current.day, 0,
-            minutes),
+        startTime:
+            DateTime(current.year, current.month, current.day, 0, minutes),
         roundNumber: round + 1,
       ));
       minutes += slot;
@@ -91,8 +91,8 @@ List<FixtureMatch> generateRoundRobin({
         matches.add(FixtureMatch(
           homeTeamId: m.awayTeamId,
           awayTeamId: m.homeTeamId,
-          startTime: DateTime(current.year, current.month, current.day, 0,
-              minutes),
+          startTime:
+              DateTime(current.year, current.month, current.day, 0, minutes),
           roundNumber: numRounds + r,
         ));
         minutes += slot;

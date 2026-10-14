@@ -74,7 +74,8 @@ class _FixtureGeneratorScreenState extends State<FixtureGeneratorScreen> {
           await db.from('teams').select('id, name').eq('league_id', _leagueId!);
       if (teams.length < 2) {
         if (mounted) {
-          showToast(context,
+          showToast(
+              context,
               'Se necesitan al menos 2 equipos para generar un fixture.',
               ToastType.error);
         }
@@ -94,12 +95,15 @@ class _FixtureGeneratorScreenState extends State<FixtureGeneratorScreen> {
           .from('matches')
           .insert(matches.map((m) => m.toInsert(_leagueId!)).toList());
       if (!mounted) return;
-      showToast(context, '¡Fixture generado! ${matches.length} partidos creados.',
+      showToast(
+          context,
+          '¡Fixture generado! ${matches.length} partidos creados.',
           ToastType.success);
       context.pop();
     } catch (e) {
       if (mounted) {
-        showToast(context, 'Error al generar: ${errorMessage(e)}', ToastType.error);
+        showToast(
+            context, 'Error al generar: ${errorMessage(e)}', ToastType.error);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -135,7 +139,8 @@ class _FixtureGeneratorScreenState extends State<FixtureGeneratorScreen> {
           Expanded(
             child: LabeledField(
               label: 'Fecha Inicio',
-              child: OutlinedButton(
+              child: PickerField(
+                icon: Icons.event,
                 onPressed: () async {
                   final d = await showDatePicker(
                     context: context,
@@ -153,7 +158,8 @@ class _FixtureGeneratorScreenState extends State<FixtureGeneratorScreen> {
           Expanded(
             child: LabeledField(
               label: 'Hora Inicio',
-              child: OutlinedButton(
+              child: PickerField(
+                icon: Icons.schedule,
                 onPressed: () async {
                   final t = await showTimePicker(
                       context: context, initialTime: _startTime);
@@ -183,7 +189,8 @@ class _FixtureGeneratorScreenState extends State<FixtureGeneratorScreen> {
         ]),
         LabeledField(
           label: 'Días de Juego Principal',
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final (day, label) in _days)
                 FilterChip(

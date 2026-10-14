@@ -46,7 +46,8 @@ class TeamShield extends StatelessWidget {
     final fallback = initials.isEmpty
         ? Icon(icon, size: size * 0.5, color: AppColors.textSecondary)
         : Text(
-            initials.substring(0, initials.length >= 3 ? 3 : initials.length)
+            initials
+                .substring(0, initials.length >= 3 ? 3 : initials.length)
                 .toUpperCase(),
             style: TextStyle(
                 fontSize: size * 0.28,
@@ -88,9 +89,8 @@ class Avatar extends StatelessWidget {
       decoration: const BoxDecoration(
           shape: BoxShape.circle, color: AppColors.inputDark),
       clipBehavior: Clip.antiAlias,
-      child: (url != null && url!.isNotEmpty)
-          ? NetImage(url!, fallback: fb)
-          : fb,
+      child:
+          (url != null && url!.isNotEmpty) ? NetImage(url!, fallback: fb) : fb,
     );
   }
 }
@@ -152,8 +152,8 @@ class SectionTitle extends StatelessWidget {
         child: Row(children: [
           Expanded(
             child: Text(text,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
           if (trailing != null) trailing!,
         ]),
@@ -349,6 +349,46 @@ class SimpleDropdown<T> extends StatelessWidget {
           DropdownMenuItem(value: v, child: Text(label)),
       ],
       onChanged: onChanged,
+    );
+  }
+}
+
+/// Campo con aspecto de input para elegir fecha u hora (antes eran botones
+/// delineados pequeños que no parecían parte del formulario).
+class PickerField extends StatelessWidget {
+  const PickerField({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.icon = Icons.event,
+  });
+
+  final VoidCallback onPressed;
+  final Widget child;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.inputDark,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(children: [
+            Icon(icon, size: 20, color: AppColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(fontSize: 15),
+                child: child,
+              ),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }

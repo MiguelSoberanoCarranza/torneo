@@ -110,7 +110,8 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
 
   Future<void> _loadTables() async {
     final standings = await fetchStandings(widget.leagueId);
-    final stats = aggregateStats(await fetchFinishedMatchEvents(widget.leagueId));
+    final stats =
+        aggregateStats(await fetchFinishedMatchEvents(widget.leagueId));
     final liguilla = await fetchLiguilla(widget.leagueId);
     if (!mounted) return;
     setState(() {
@@ -137,7 +138,8 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
             _debounce = Timer(const Duration(milliseconds: 800), () async {
               await _loadMatches();
               final status = payload.newRecord['status'];
-              if (status == 'finished' || payload.eventType == PostgresChangeEvent.delete) {
+              if (status == 'finished' ||
+                  payload.eventType == PostgresChangeEvent.delete) {
                 await _loadTables();
               }
             });
@@ -212,12 +214,7 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
                 const EmptyState(
                     icon: Icons.groups, title: 'Aún no hay equipos')
               else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                      width: 560,
-                      child: StandingsTable(standings: _standings)),
-                ),
+                StandingsTable(standings: _standings),
             ]),
             _wrap([ScorersTable(scorers: _stats.scorers)]),
             _wrap([CardsTable(stats: _stats.cards)]),

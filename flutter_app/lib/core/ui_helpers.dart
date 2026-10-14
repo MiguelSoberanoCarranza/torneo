@@ -111,6 +111,16 @@ String statusLabel(String status) => switch (status) {
       _ => status,
     };
 
+String leagueStatusLabel(String? status) => switch (status) {
+      'upcoming' => 'Próxima',
+      'active' => 'En curso',
+      'finished' => 'Finalizada',
+      _ => status ?? '',
+    };
+
+/// Dorsal para mostrar: '#' cuando no hay número (o es 0).
+String dorsal(int? number) => (number == null || number == 0) ? '#' : '$number';
+
 Color? parseHexColor(String? hex) {
   if (hex == null || !hex.startsWith('#') || hex.length != 7) return null;
   return Color(int.parse('FF${hex.substring(1)}', radix: 16));

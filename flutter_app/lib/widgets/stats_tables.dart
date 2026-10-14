@@ -25,71 +25,86 @@ class StandingsTable extends StatelessWidget {
                   fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
         );
 
-    return Card(
-      child: Column(children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          child: Row(children: [
-            const SizedBox(width: 28, child: Text('Pos', style: _headStyle)),
-            const Expanded(child: Text('Equipo', style: _headStyle)),
-            for (final h in ['PJ', 'G', 'E', 'P', 'GF', 'GC', 'DIF', 'PTS'])
-              SizedBox(
-                  width: 30,
-                  child: Text(h,
-                      textAlign: TextAlign.center, style: _headStyle)),
-          ]),
-        ),
-        const Divider(height: 1, color: AppColors.borderDark),
-        for (var i = 0; i < standings.length; i++)
-          Container(
-            color: i < 8 ? AppColors.primary.withValues(alpha: 0.06) : null,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    // En pantallas angostas se ocultan GF/GC (queda DIF) para que la tabla
+    // quepa completa sin desplazamiento horizontal.
+    return LayoutBuilder(builder: (context, c) {
+      final compact = c.maxWidth < 480;
+      return Card(
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: Row(children: [
-              SizedBox(
-                width: 28,
-                child: Text('${i + 1}',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: i < 8
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF94A3B8))),
-              ),
-              Expanded(
-                child: Row(children: [
-                  TeamShield(
-                      url: standings[i].shieldUrl,
-                      name: standings[i].name,
-                      size: 26),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(standings[i].name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                  ),
-                ]),
-              ),
-              num('${standings[i].played}'),
-              num('${standings[i].won}'),
-              num('${standings[i].drawn}'),
-              num('${standings[i].lost}'),
-              num('${standings[i].gf}'),
-              num('${standings[i].ga}'),
-              num(
-                standings[i].gd > 0
-                    ? '+${standings[i].gd}'
-                    : '${standings[i].gd}',
-                color: standings[i].gd > 0
-                    ? AppColors.success
-                    : standings[i].gd < 0
-                        ? AppColors.danger
-                        : AppColors.textSecondary,
-              ),
-              num('${standings[i].points}', bold: true),
+              const SizedBox(width: 28, child: Text('Pos', style: _headStyle)),
+              const Expanded(child: Text('Equipo', style: _headStyle)),
+              for (final h in [
+                'PJ',
+                'G',
+                'E',
+                'P',
+                if (!compact) ...['GF', 'GC'],
+                'DIF',
+                'PTS'
+              ])
+                SizedBox(
+                    width: 30,
+                    child: Text(h,
+                        textAlign: TextAlign.center, style: _headStyle)),
             ]),
           ),
-      ]),
-    );
+          const Divider(height: 1, color: AppColors.borderDark),
+          for (var i = 0; i < standings.length; i++)
+            Container(
+              color: i < 8 ? AppColors.primary.withValues(alpha: 0.06) : null,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(children: [
+                SizedBox(
+                  width: 28,
+                  child: Text('${i + 1}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: i < 8
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF94A3B8))),
+                ),
+                Expanded(
+                  child: Row(children: [
+                    TeamShield(
+                        url: standings[i].shieldUrl,
+                        name: standings[i].name,
+                        size: 26),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(standings[i].name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                ),
+                num('${standings[i].played}'),
+                num('${standings[i].won}'),
+                num('${standings[i].drawn}'),
+                num('${standings[i].lost}'),
+                if (!compact) ...[
+                  num('${standings[i].gf}'),
+                  num('${standings[i].ga}'),
+                ],
+                num(
+                  standings[i].gd > 0
+                      ? '+${standings[i].gd}'
+                      : '${standings[i].gd}',
+                  color: standings[i].gd > 0
+                      ? AppColors.success
+                      : standings[i].gd < 0
+                          ? AppColors.danger
+                          : AppColors.textSecondary,
+                ),
+                num('${standings[i].points}', bold: true),
+              ]),
+            ),
+        ]),
+      );
+    });
   }
 }
 
@@ -102,7 +117,8 @@ class _PlayerCell extends StatelessWidget {
         Avatar(url: stat.photoUrl, size: 36),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(stat.name,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -260,12 +276,13 @@ class ExportFrame extends StatelessWidget {
                   letterSpacing: 2,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text.rich(TextSpan(children: [
-            TextSpan(text: '$title '),
-            TextSpan(
-                text: highlight,
-                style: const TextStyle(color: Color(0xFF60A5FA))),
-          ]),
+          Text.rich(
+              TextSpan(children: [
+                TextSpan(text: '$title '),
+                TextSpan(
+                    text: highlight,
+                    style: const TextStyle(color: Color(0xFF60A5FA))),
+              ]),
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -275,8 +292,7 @@ class ExportFrame extends StatelessWidget {
             const Icon(Icons.emoji_events, color: Color(0xFFCBD5E1), size: 18),
             const SizedBox(width: 6),
             Flexible(
-              child: Text(
-                  (subtitle ?? leagueName).toUpperCase(),
+              child: Text((subtitle ?? leagueName).toUpperCase(),
                   style: const TextStyle(
                       color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
             ),

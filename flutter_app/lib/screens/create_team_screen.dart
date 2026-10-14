@@ -28,10 +28,26 @@ class CreateTeamScreen extends StatefulWidget {
 }
 
 const _kitColors = [
-  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
-  '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
-  '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#ffffff', '#94a3b8',
-  '#475569', '#000000',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#84cc16',
+  '#22c55e',
+  '#10b981',
+  '#14b8a6',
+  '#06b6d4',
+  '#0ea5e9',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#a855f7',
+  '#d946ef',
+  '#ec4899',
+  '#ffffff',
+  '#94a3b8',
+  '#475569',
+  '#000000',
 ];
 
 class _CreateTeamScreenState extends State<CreateTeamScreen> {
@@ -61,7 +77,13 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _captainName, _captainEmail, _newName, _newNumber]) {
+    for (final c in [
+      _name,
+      _captainName,
+      _captainEmail,
+      _newName,
+      _newNumber
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -70,8 +92,8 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final t =
-          Team.fromJson(await db.from('teams').select().eq('id', widget.teamId!).single());
+      final t = Team.fromJson(
+          await db.from('teams').select().eq('id', widget.teamId!).single());
       _name.text = t.name;
       _captainName.text = t.captainName ?? '';
       _captainEmail.text = t.captainEmail ?? '';
@@ -117,7 +139,8 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
       return;
     }
     if (!_isEditing && widget.leagueId == null) {
-      showToast(context, 'Error: No se ha especificado una liga.', ToastType.error);
+      showToast(
+          context, 'Error: No se ha especificado una liga.', ToastType.error);
       return;
     }
     setState(() => _loading = true);
@@ -174,13 +197,16 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
             .select()
             .single();
         if (!mounted) return;
-        showToast(context, '¡Equipo registrado! Ahora puedes agregar jugadores.',
+        showToast(
+            context,
+            '¡Equipo registrado! Ahora puedes agregar jugadores.',
             ToastType.success);
         context.pushReplacement('/team/${inserted['id']}');
       }
     } catch (e) {
       if (mounted) {
-        showToast(context, 'Error al guardar: ${errorMessage(e)}', ToastType.error);
+        showToast(
+            context, 'Error al guardar: ${errorMessage(e)}', ToastType.error);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -197,7 +223,9 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
           photoUrl = await uploadPublicImage('player-photos', _newPhoto!);
         } catch (_) {
           if (mounted) {
-            showToast(context, 'No se pudo subir la foto, se guardará sin ella.',
+            showToast(
+                context,
+                'No se pudo subir la foto, se guardará sin ella.',
                 ToastType.error);
           }
         }
@@ -241,13 +269,16 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
       setState(() => _players.removeWhere((x) => x.id == p.id));
       if (mounted) showToast(context, 'Jugador eliminado', ToastType.success);
     } catch (e) {
-      if (mounted) showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      }
     }
   }
 
   Future<void> _editPlayer(Player p) async {
     final name = TextEditingController(text: p.name);
-    final number = TextEditingController(text: '${p.number ?? ''}');
+    final number =
+        TextEditingController(text: (p.number ?? 0) == 0 ? '' : '${p.number}');
     var position = positions.contains(p.position) ? p.position! : 'Delantero';
     PickedImage? photo;
     var saving = false;
@@ -298,7 +329,8 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                     child: SimpleDropdown<String>(
                       value: position,
                       items: [for (final pos in positions) (pos, pos)],
-                      onChanged: (v) => setLocal(() => position = v ?? position),
+                      onChanged: (v) =>
+                          setLocal(() => position = v ?? position),
                     ),
                   ),
                 ]),
@@ -324,7 +356,9 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                                 'player-photos', photo!);
                           } catch (_) {
                             if (mounted) {
-                              showToast(context, 'No se pudo subir la foto nueva.',
+                              showToast(
+                                  context,
+                                  'No se pudo subir la foto nueva.',
                                   ToastType.error);
                             }
                           }
@@ -356,7 +390,8 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                       } catch (e) {
                         setLocal(() => saving = false);
                         if (mounted) {
-                          showToast(context,
+                          showToast(
+                              context,
                               'Error al actualizar: ${errorMessage(e)}',
                               ToastType.error);
                         }
@@ -407,11 +442,6 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new), onPressed: _back),
         title: Text(_isEditing ? 'Editar Equipo' : 'Crear Equipo'),
-        actions: [
-          TextButton(
-              onPressed: _loading ? null : _save,
-              child: Text(_loading ? '...' : 'Guardar')),
-        ],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -501,7 +531,8 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
               Card(
                 child: ListTile(
                   leading: TeamShield(url: _shieldUrl, size: 44),
-                  title: Text(_name.text.isEmpty ? 'Nombre Equipo' : _name.text),
+                  title:
+                      Text(_name.text.isEmpty ? 'Nombre Equipo' : _name.text),
                   subtitle: Text(_captainName.text.isEmpty
                       ? 'Sin Capitán'
                       : 'C: ${_captainName.text}'),
@@ -541,7 +572,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
             child: ListTile(
               leading: p.photoUrl != null
                   ? Avatar(url: p.photoUrl, size: 40)
-                  : CircleAvatar(child: Text('${p.number ?? ''}')),
+                  : CircleAvatar(child: Text(dorsal(p.number))),
               title: Text(p.name),
               subtitle: Text(p.position ?? ''),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -571,8 +602,9 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                   },
                   child: CircleAvatar(
                     backgroundColor: AppColors.inputDark,
-                    backgroundImage:
-                        _newPhoto != null ? MemoryImage(_newPhoto!.bytes) : null,
+                    backgroundImage: _newPhoto != null
+                        ? MemoryImage(_newPhoto!.bytes)
+                        : null,
                     child: _newPhoto == null
                         ? const Icon(Icons.add_a_photo, size: 18)
                         : null,

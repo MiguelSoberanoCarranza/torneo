@@ -92,7 +92,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         showToast(context, 'Error de permisos: No se guardaron datos.',
             ToastType.error);
       } else {
-        showToast(context, 'Perfil actualizado correctamente', ToastType.success);
+        showToast(
+            context, 'Perfil actualizado correctamente', ToastType.success);
         setState(() {
           _avatarUrl = avatar;
           _file = null;

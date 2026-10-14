@@ -172,8 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(_error!,
-                              style:
-                                  const TextStyle(color: AppColors.danger))),
+                              style: const TextStyle(color: AppColors.danger))),
                     ]),
                   ),
                 TextField(

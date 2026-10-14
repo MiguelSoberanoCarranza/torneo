@@ -101,7 +101,9 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
             'player_in:players!match_events_player_in_id_fkey(name)')
         .eq('match_id', widget.matchId)
         .order('created_at', ascending: false);
-    if (mounted) setState(() => _events = data.map(MatchEvent.fromJson).toList());
+    if (mounted) {
+      setState(() => _events = data.map(MatchEvent.fromJson).toList());
+    }
   }
 
   void _back() {
@@ -119,7 +121,8 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     final m = _match;
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new), onPressed: _back),
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new), onPressed: _back),
         title: Text(m == null ? 'Partido' : 'Jornada ${m.roundNumber ?? '-'}'),
       ),
       body: _loading
@@ -133,7 +136,8 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     Center(
                       child: m.isLive
                           ? const LiveBadge()
-                          : Chip(label: Text(statusLabel(m.status).toUpperCase())),
+                          : Chip(
+                              label: Text(statusLabel(m.status).toUpperCase())),
                     ),
                     const SizedBox(height: 12),
                     _scoreboard(m),

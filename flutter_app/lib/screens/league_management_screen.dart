@@ -43,11 +43,8 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await db
-          .from('leagues')
-          .select()
-          .eq('id', widget.leagueId)
-          .single();
+      final data =
+          await db.from('leagues').select().eq('id', widget.leagueId).single();
       final league = League.fromJson(data);
       final isOwner =
           session.user != null && league.ownerId == session.user!.id;
@@ -83,7 +80,9 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
           .select('*, teams(name, shield_url)')
           .inFilter('team_id', _teams.map((t) => t.id).toList())
           .order('name', ascending: true);
-      if (mounted) setState(() => _players = data.map(Player.fromJson).toList());
+      if (mounted) {
+        setState(() => _players = data.map(Player.fromJson).toList());
+      }
     }
     if (mode == 'Árbitros' && _referees == null) {
       final data = await db.from('profiles').select().eq('role', 'referee');
@@ -182,11 +181,12 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
           TeamShield(url: l.logoUrl, size: 80, icon: Icons.emoji_events),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(l.name,
                   style: const TextStyle(
                       fontSize: 22, fontWeight: FontWeight.bold)),
-              Text('Formato: Fut ${l.format ?? '-'} · ${l.status ?? ''}',
+              Text('Fut ${l.format ?? '-'} · ${leagueStatusLabel(l.status)}',
                   style: const TextStyle(color: AppColors.textSecondary)),
               if (l.description != null && l.description!.isNotEmpty)
                 Text(l.description!,
@@ -201,7 +201,8 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
               child: _stat(Icons.groups, 'Equipos',
                   '${_teams.length} / ${l.maxTeams ?? '-'}')),
           const SizedBox(width: 12),
-          Expanded(child: _stat(Icons.sports_soccer, 'Partidos', '$_matchCount')),
+          Expanded(
+              child: _stat(Icons.sports_soccer, 'Partidos', '$_matchCount')),
         ]),
         if (l.isActive) ...[
           const SizedBox(height: 12),
@@ -254,7 +255,8 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
   Widget _stat(IconData icon, String label, String value) => Card(
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(width: 6),
@@ -297,7 +299,8 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
                 leading: TeamShield(url: t.shieldUrl, name: t.name, size: 44),
                 title: Text(t.name,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Capitán: ${t.captainName?.isNotEmpty == true ? t.captainName : 'Sin asignar'}'),
+                subtitle: Text(
+                    'Capitán: ${t.captainName?.isNotEmpty == true ? t.captainName : 'Sin asignar'}'),
                 trailing: _isOwner ? const Icon(Icons.chevron_right) : null,
                 onTap: _isOwner
                     ? () async {
@@ -310,7 +313,9 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
         ];
       case 'Jugadores':
         if (_players == null) {
-          return [const Padding(padding: EdgeInsets.all(24), child: LoadingView())];
+          return [
+            const Padding(padding: EdgeInsets.all(24), child: LoadingView())
+          ];
         }
         final players =
             _players!.where((p) => p.name.toLowerCase().contains(q)).toList();
@@ -328,7 +333,7 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
             Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                leading: CircleAvatar(child: Text('${p.number ?? '#'}')),
+                leading: CircleAvatar(child: Text(dorsal(p.number))),
                 title: Text(p.name),
                 subtitle: Text(
                     [p.position, p.teamName].whereType<String>().join(' · ')),
@@ -337,7 +342,9 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
         ];
       default:
         if (_referees == null) {
-          return [const Padding(padding: EdgeInsets.all(24), child: LoadingView())];
+          return [
+            const Padding(padding: EdgeInsets.all(24), child: LoadingView())
+          ];
         }
         final refs = _referees!
             .where((r) => r.displayName.toLowerCase().contains(q))

@@ -54,7 +54,8 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty || _teamId == null) {
-      showToast(context, 'Completa todos los campos obligatorios', ToastType.error);
+      showToast(
+          context, 'Completa todos los campos obligatorios', ToastType.error);
       return;
     }
     setState(() => _loading = true);
@@ -158,8 +159,7 @@ class _AddPlayerScreenState extends State<AddPlayerScreen> {
         ),
         const SizedBox(height: 8),
         FilledButton(
-          onPressed:
-              _loading || _uploading || _teams.isEmpty ? null : _save,
+          onPressed: _loading || _uploading || _teams.isEmpty ? null : _save,
           child: Text(_uploading
               ? 'Subiendo foto...'
               : _loading

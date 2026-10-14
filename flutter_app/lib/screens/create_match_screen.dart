@@ -79,8 +79,8 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
     }
     setState(() => _loading = true);
     try {
-      final start = DateTime(_date!.year, _date!.month, _date!.day,
-          _time!.hour, _time!.minute);
+      final start = DateTime(
+          _date!.year, _date!.month, _date!.day, _time!.hour, _time!.minute);
       await db.from('matches').insert({
         'league_id': _leagueId,
         'home_team_id': _homeId,
@@ -141,7 +141,8 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           Expanded(
             child: LabeledField(
               label: 'Fecha',
-              child: OutlinedButton(
+              child: PickerField(
+                icon: Icons.event,
                 onPressed: () async {
                   final d = await showDatePicker(
                     context: context,
@@ -159,11 +160,13 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           Expanded(
             child: LabeledField(
               label: 'Hora',
-              child: OutlinedButton(
+              child: PickerField(
+                icon: Icons.schedule,
                 onPressed: () async {
                   final t = await showTimePicker(
                       context: context,
-                      initialTime: _time ?? const TimeOfDay(hour: 9, minute: 0));
+                      initialTime:
+                          _time ?? const TimeOfDay(hour: 9, minute: 0));
                   if (t != null) setState(() => _time = t);
                 },
                 child: Text(_time == null ? 'Elegir' : _time!.format(context)),

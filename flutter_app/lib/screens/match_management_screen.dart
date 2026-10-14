@@ -44,7 +44,8 @@ class _MatchManagementScreenState extends State<MatchManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = _matches.where((m) => _filter == 'all' || m.status == _filter).toList();
+    final list =
+        _matches.where((m) => _filter == 'all' || m.status == _filter).toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Partidos'),
@@ -52,15 +53,25 @@ class _MatchManagementScreenState extends State<MatchManagementScreen> {
           preferredSize: const Size.fromHeight(52),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'all', label: Text('Todos')),
-                ButtonSegment(value: 'scheduled', label: Text('Pendientes')),
-                ButtonSegment(value: 'live', label: Text('En Vivo')),
-                ButtonSegment(value: 'finished', label: Text('Fin')),
-              ],
-              selected: {_filter},
-              onSelectionChanged: (s) => setState(() => _filter = s.first),
+            // Chips en lugar de SegmentedButton: "Pendientes" no cabía.
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                for (final (v, label) in const [
+                  ('all', 'Todos'),
+                  ('scheduled', 'Pendientes'),
+                  ('live', 'En Vivo'),
+                  ('finished', 'Finalizados'),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: _filter == v,
+                      onSelected: (_) => setState(() => _filter = v),
+                    ),
+                  ),
+              ]),
             ),
           ),
         ),
@@ -103,9 +114,8 @@ class _MatchManagementScreenState extends State<MatchManagementScreen> {
                                 homeName: m.homeTeam?.name ?? 'Local',
                                 awayName: m.awayTeam?.name ?? 'Visitante');
                             if (res != null) {
-                              setState(() => _matches[
-                                      _matches.indexWhere((x) => x.id == m.id)] =
-                                  m.merge(res));
+                              setState(() => _matches[_matches.indexWhere(
+                                  (x) => x.id == m.id)] = m.merge(res));
                             }
                           },
                         ),

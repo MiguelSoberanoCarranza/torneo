@@ -122,7 +122,9 @@ class _ManualResultSheetState extends State<_ManualResultSheet> {
       _homeCards = cards(m.homeTeamId);
       _awayCards = cards(m.awayTeamId);
     } catch (e) {
-      if (mounted) showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      }
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -156,8 +158,8 @@ class _ManualResultSheetState extends State<_ManualResultSheet> {
 
     final updates = <String, dynamic>{};
     if (_homeScore.text.trim() == '-1' && _awayScore.text.trim() == '-1') {
-      updates.addAll(
-          {'home_score': -1, 'away_score': -1, 'status': 'finished'});
+      updates
+          .addAll({'home_score': -1, 'away_score': -1, 'status': 'finished'});
     } else {
       updates['home_score'] = int.tryParse(_homeScore.text.trim()) ?? 0;
       updates['away_score'] = int.tryParse(_awayScore.text.trim()) ?? 0;
@@ -190,8 +192,7 @@ class _ManualResultSheetState extends State<_ManualResultSheet> {
         if (name.isEmpty) return;
         final lower = name.toLowerCase();
         var player = cache
-            .where((p) =>
-                (p['name'] as String).trim().toLowerCase() == lower)
+            .where((p) => (p['name'] as String).trim().toLowerCase() == lower)
             .firstOrNull;
         if (player == null) {
           player = await db
@@ -334,13 +335,12 @@ class _ManualResultSheetState extends State<_ManualResultSheet> {
 
   String _short(String s) => s.length > 10 ? s.substring(0, 10) : s;
 
-  Widget _scoreField(String label, TextEditingController c,
-      ValueChanged<String> onChanged) {
+  Widget _scoreField(
+      String label, TextEditingController c, ValueChanged<String> onChanged) {
     return Column(children: [
       Text(label,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-              fontSize: 12, color: AppColors.textSecondary)),
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
       const SizedBox(height: 6),
       TextField(
         controller: c,
@@ -352,8 +352,8 @@ class _ManualResultSheetState extends State<_ManualResultSheet> {
     ]);
   }
 
-  Widget _goalList(String title, List<_Entry> list,
-      List<Map<String, dynamic>> players) {
+  Widget _goalList(
+      String title, List<_Entry> list, List<Map<String, dynamic>> players) {
     if (list.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -384,8 +384,8 @@ class _ManualResultSheetState extends State<_ManualResultSheet> {
     );
   }
 
-  Widget _cardList(String title, List<_Entry> list,
-      List<Map<String, dynamic>> players) {
+  Widget _cardList(
+      String title, List<_Entry> list, List<Map<String, dynamic>> players) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -478,8 +478,7 @@ class _PlayerNameField extends StatelessWidget {
         return options.where((o) => o.toLowerCase().contains(q));
       },
       onSelected: onChanged,
-      fieldViewBuilder: (context, controller, focusNode, onSubmit) =>
-          TextField(
+      fieldViewBuilder: (context, controller, focusNode, onSubmit) => TextField(
         controller: controller,
         focusNode: focusNode,
         decoration: InputDecoration(hintText: hint),

@@ -37,8 +37,8 @@ void main() {
         {'team_id': 'A', 'points_delta': -3},
         {'team_id': 'A', 'points_delta': -1},
       ]);
-      final s = calculateStandings(
-          [t('A'), t('B')], [r('A', 'B', 1, 0)], totals);
+      final s =
+          calculateStandings([t('A'), t('B')], [r('A', 'B', 1, 0)], totals);
       expect(s.first.id, 'B');
       final a = s.firstWhere((x) => x.id == 'A');
       expect((a.matchPoints, a.sanctionPoints, a.points), (3, -4, -1));
@@ -94,8 +94,8 @@ void main() {
   });
 
   group('liguilla', () {
-    final standings = calculateStandings(
-        [for (var i = 1; i <= 8; i++) t('$i')], const []);
+    final standings =
+        calculateStandings([for (var i = 1; i <= 8; i++) t('$i')], const []);
     final ranked = [
       for (var i = 0; i < 8; i++) RankedTeam(standings[i], i + 1),
     ];

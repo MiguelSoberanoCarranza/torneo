@@ -51,8 +51,9 @@ final appRouter = GoRouter(
   redirect: (context, state) {
     final path = state.uri.path;
     if (_isProtected(path) && !session.isLoggedIn) {
-      return Uri(path: '/admin-login', queryParameters: {'from': state.uri.toString()})
-          .toString();
+      return Uri(
+          path: '/admin-login',
+          queryParameters: {'from': state.uri.toString()}).toString();
     }
     return null;
   },
@@ -65,7 +66,8 @@ final appRouter = GoRouter(
     // ---------- Ruta pública por torneo (sin login, sin menú) ----------
     GoRoute(
       path: '/torneo/:id',
-      builder: (_, s) => PublicTournamentScreen(leagueId: s.pathParameters['id']!),
+      builder: (_, s) =>
+          PublicTournamentScreen(leagueId: s.pathParameters['id']!),
       routes: [
         GoRoute(
           path: 'partido/:matchId',
@@ -118,13 +120,11 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: 'create-team',
-          builder: (_, s) =>
-              CreateTeamScreen(leagueId: s.pathParameters['id']),
+          builder: (_, s) => CreateTeamScreen(leagueId: s.pathParameters['id']),
         ),
         GoRoute(
           path: 'add-player',
-          builder: (_, s) =>
-              AddPlayerScreen(leagueId: s.pathParameters['id']!),
+          builder: (_, s) => AddPlayerScreen(leagueId: s.pathParameters['id']!),
         ),
       ],
     ),

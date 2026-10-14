@@ -34,8 +34,11 @@ class _AddRefereeScreenState extends State<AddRefereeScreen> {
     }
     setState(() => _loading = true);
     try {
-      final profile =
-          await db.from('profiles').select('id').eq('email', email).maybeSingle();
+      final profile = await db
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
       if (profile == null) {
         if (mounted) {
           showToast(
@@ -53,7 +56,9 @@ class _AddRefereeScreenState extends State<AddRefereeScreen> {
           ToastType.success);
       context.pop();
     } catch (e) {
-      if (mounted) showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

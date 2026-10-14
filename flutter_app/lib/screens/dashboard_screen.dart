@@ -140,6 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _header(),
                       const SizedBox(height: 12),
                       if (_leagues.isNotEmpty) _leagueSelector(),
+                      if (_ownsSelected) _quickActions(),
                       ..._content(),
                     ],
                   ),
@@ -169,8 +170,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: const TextStyle(
                     fontSize: 12, color: AppColors.textSecondary)),
             Text(name,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ]),
         ]),
       ),
@@ -225,11 +226,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ]);
   }
 
+  bool get _ownsSelected =>
+      session.user != null && _selected?.ownerId == session.user!.id;
+
+  /// Atajos para el dueño de la liga seleccionada.
+  Widget _quickActions() {
+    Widget chip(IconData icon, String label, String path) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ActionChip(
+            avatar: Icon(icon, size: 18, color: AppColors.primary),
+            label: Text(label),
+            onPressed: () async {
+              await context.push(path);
+              if (mounted) _loadMatches();
+            },
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: [
+          chip(Icons.tune, 'Gestionar liga', '/league/$_selectedId'),
+          chip(Icons.calendar_month, 'Calendario', '/calendar'),
+          chip(Icons.auto_fix_high, 'Generar fixture', '/fixture-generator'),
+          chip(Icons.gavel, 'Sanciones', '/sanciones'),
+        ]),
+      ),
+    );
+  }
+
   List<Widget> _content() {
     if (_leagues.isEmpty) {
       return const [
-        EmptyState(
-            icon: Icons.emoji_events, title: 'No hay ligas disponibles'),
+        EmptyState(icon: Icons.emoji_events, title: 'No hay ligas disponibles'),
       ];
     }
     final widgets = <Widget>[];

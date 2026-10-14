@@ -105,8 +105,9 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
       if (_isEditing) {
         await db.from('leagues').update(data).eq('id', widget.leagueId!);
       } else {
-        await db.from('leagues').insert(
-            {'owner_id': user.id, 'status': 'upcoming', ...data});
+        await db
+            .from('leagues')
+            .insert({'owner_id': user.id, 'status': 'upcoming', ...data});
         await session.refresh();
       }
       if (!mounted) return;
@@ -117,7 +118,8 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
       context.canPop() ? context.pop(true) : context.go('/my-leagues');
     } catch (e) {
       if (mounted) {
-        showToast(context, 'Error al guardar: ${errorMessage(e)}', ToastType.error);
+        showToast(
+            context, 'Error al guardar: ${errorMessage(e)}', ToastType.error);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -224,7 +226,9 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                       icon: Icon(Icons.sports_soccer),
                       label: Text('Fut 5')),
                   ButtonSegment(
-                      value: '7', icon: Icon(Icons.groups), label: Text('Fut 7')),
+                      value: '7',
+                      icon: Icon(Icons.groups),
+                      label: Text('Fut 7')),
                   ButtonSegment(
                       value: '11',
                       icon: Icon(Icons.stadium),

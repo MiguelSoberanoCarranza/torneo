@@ -39,8 +39,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       final me = session.user;
       if (me == null) return;
-      final profile =
-          await db.from('profiles').select('role').eq('id', me.id).maybeSingle();
+      final profile = await db
+          .from('profiles')
+          .select('role')
+          .eq('id', me.id)
+          .maybeSingle();
       if (profile?['role'] != 'superadmin') {
         if (mounted) {
           showToast(context, 'No tienes permisos de super administrador',
@@ -55,7 +58,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           .order('created_at', ascending: false);
       _users = rows.map(Profile.fromJson).toList();
     } catch (e) {
-      if (mounted) showToast(context, 'Error al cargar usuarios', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al cargar usuarios', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -73,7 +78,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             avatarUrl: u.avatarUrl,
             role: role);
       });
-      if (mounted) showToast(context, 'Rol actualizado correctamente', ToastType.success);
+      if (mounted) {
+        showToast(context, 'Rol actualizado correctamente', ToastType.success);
+      }
     } catch (e) {
       if (mounted) {
         showToast(context, 'Error al actualizar rol: ${errorMessage(e)}',

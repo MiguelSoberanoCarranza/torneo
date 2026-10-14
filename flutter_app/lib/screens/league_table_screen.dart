@@ -44,7 +44,9 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
       _selectedId = _leagues.isNotEmpty ? _leagues.first.id : null;
       await _load();
     } catch (e) {
-      if (mounted) showToast(context, 'Error al cargar la tabla', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al cargar la tabla', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -58,7 +60,9 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
       _standings = await fetchStandings(id);
       _stats = aggregateStats(await fetchFinishedMatchEvents(id));
     } catch (e) {
-      if (mounted) showToast(context, 'Error al cargar la tabla', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al cargar la tabla', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -113,8 +117,7 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
                           final slug = _leagueName
                               .replaceAll(RegExp(r'\s+'), '-')
                               .toLowerCase();
-                          await captureAndShare(
-                              key, 'tabla-general-$slug.png');
+                          await captureAndShare(key, 'tabla-general-$slug.png');
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (mounted) {
                             showToast(context, 'Imagen generada correctamente',
@@ -183,16 +186,7 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
                   icon: Icons.groups, title: 'No hay datos en "$_leagueName"')
               : TabBarView(controller: _tabs, children: [
                   ListView(padding: const EdgeInsets.all(12), children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                            minWidth: MediaQuery.of(context).size.width - 24),
-                        child: SizedBox(
-                            width: 520,
-                            child: StandingsTable(standings: _standings)),
-                      ),
-                    ),
+                    StandingsTable(standings: _standings),
                   ]),
                   ListView(padding: const EdgeInsets.all(12), children: [
                     ScorersTable(scorers: _stats.scorers),

@@ -343,10 +343,9 @@ class Profile {
   final String? avatarUrl;
   final String? role;
 
-  String get displayName =>
-      (fullName != null && fullName!.trim().isNotEmpty)
-          ? fullName!
-          : (email ?? 'Usuario');
+  String get displayName => (fullName != null && fullName!.trim().isNotEmpty)
+      ? fullName!
+      : (email ?? 'Usuario');
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
         id: j['id'] as String,

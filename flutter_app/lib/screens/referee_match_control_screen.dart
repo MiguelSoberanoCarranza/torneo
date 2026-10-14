@@ -122,7 +122,9 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
             'player_in:players!match_events_player_in_id_fkey(name, number)')
         .eq('match_id', _id)
         .order('created_at', ascending: false);
-    if (mounted) setState(() => _events = data.map(MatchEvent.fromJson).toList());
+    if (mounted) {
+      setState(() => _events = data.map(MatchEvent.fromJson).toList());
+    }
   }
 
   Future<bool> _update(Map<String, dynamic> data, String errorMsg) async {
@@ -159,7 +161,9 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
     if (await _update({'status': 'live', 'last_start_time': _nowIso},
         'Error al actualizar estado')) {
       setState(() => _setRunning(true));
-      if (mounted) showToast(context, 'Estado actualizado: En Vivo', ToastType.success);
+      if (mounted) {
+        showToast(context, 'Estado actualizado: En Vivo', ToastType.success);
+      }
     }
   }
 
@@ -174,8 +178,8 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
   }
 
   Future<void> _resume() async {
-    if (await _update({'status': 'live', 'last_start_time': _nowIso},
-        'Error al reanudar')) {
+    if (await _update(
+        {'status': 'live', 'last_start_time': _nowIso}, 'Error al reanudar')) {
       setState(() => _setRunning(true));
     }
   }
@@ -267,7 +271,9 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
       if (mounted) showToast(context, 'Partido reiniciado', ToastType.success);
       WidgetsBinding.instance.addPostFrameCallback((_) => _openLineups());
     } catch (e) {
-      if (mounted) showToast(context, 'Error al borrar eventos', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al borrar eventos', ToastType.error);
+      }
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -308,11 +314,13 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
                 segments: [
                   ButtonSegment(
                       value: 'home',
-                      label: Text('${m.homeTeam?.name ?? 'Local'} (${home.length})',
+                      label: Text(
+                          '${m.homeTeam?.name ?? 'Local'} (${home.length})',
                           overflow: TextOverflow.ellipsis)),
                   ButtonSegment(
                       value: 'away',
-                      label: Text('${m.awayTeam?.name ?? 'Visitante'} (${away.length})',
+                      label: Text(
+                          '${m.awayTeam?.name ?? 'Visitante'} (${away.length})',
                           overflow: TextOverflow.ellipsis)),
                 ],
                 selected: {step},
@@ -324,14 +332,15 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
                 for (final p in players)
                   CheckboxListTile(
                     value: selected.contains(p.id),
-                    secondary: CircleAvatar(child: Text('${p.number ?? '#'}')),
+                    secondary: CircleAvatar(child: Text(dorsal(p.number))),
                     title: Text(p.name),
                     subtitle: Text(p.position ?? ''),
                     onChanged: (v) => setLocal(() {
                       if (selected.contains(p.id)) {
                         selected.remove(p.id);
                       } else if (selected.length >= _maxStarters) {
-                        showToast(context,
+                        showToast(
+                            context,
                             'Máximo $_maxStarters jugadores titulares',
                             ToastType.error);
                       } else {
@@ -368,7 +377,8 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
     );
     if (saved == true) {
       final lineups = {'home': home.toList(), 'away': away.toList()};
-      if (await _update({'lineups': lineups}, 'Error al guardar alineaciones') &&
+      if (await _update(
+              {'lineups': lineups}, 'Error al guardar alineaciones') &&
           mounted) {
         showToast(context, 'Alineaciones confirmadas', ToastType.success);
       }
@@ -445,14 +455,16 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
             'minute': minute,
           });
           if (mounted) {
-            showToast(context, 'Doble Amarilla: Jugador Expulsado',
-                ToastType.error);
+            showToast(
+                context, 'Doble Amarilla: Jugador Expulsado', ToastType.error);
           }
         }
       }
       await _loadEvents();
     } catch (e) {
-      if (mounted) showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      }
     }
   }
 
@@ -487,7 +499,8 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
     if (_loading) return const Scaffold(body: LoadingView());
     final m = _match;
     if (m == null) {
-      return Scaffold(appBar: AppBar(), body: const Center(child: Text('Error')));
+      return Scaffold(
+          appBar: AppBar(), body: const Center(child: Text('Error')));
     }
     final periodLabel = m.status == 'break'
         ? 'Entretiempo'
@@ -521,7 +534,8 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
               if (v == 'restart') _restart();
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'lineups', child: Text('Alineaciones')),
+              const PopupMenuItem(
+                  value: 'lineups', child: Text('Alineaciones')),
               if (_isAdmin)
                 const PopupMenuItem(
                     value: 'restart', child: Text('Reiniciar Partido')),
@@ -599,8 +613,7 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
           ]),
           const SizedBox(height: 8),
           Row(children: [
-            OutlinedButton(
-                onPressed: _addMinute, child: const Text('+1 Min')),
+            OutlinedButton(onPressed: _addMinute, child: const Text('+1 Min')),
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton.icon(
@@ -666,7 +679,7 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
       _ => (Icons.swap_horiz, Colors.lightBlueAccent),
     };
     final who = e.playerName != null
-        ? '${e.playerName} #${e.playerNumber ?? ''}'
+        ? '${e.playerName}${(e.playerNumber ?? 0) != 0 ? ' #${e.playerNumber}' : ''}'
         : 'Jugador no identificado';
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -679,8 +692,7 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
           Icon(icon, color: color),
         ]),
       ),
-      title: Text(
-          e.eventType == 'goal' ? 'Gol' : e.label,
+      title: Text(e.eventType == 'goal' ? 'Gol' : e.label,
           style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text([
         teamName ?? '',
@@ -725,8 +737,7 @@ class _EventPickerSheetState extends State<_EventPickerSheet> {
   String? _error;
 
   bool get _isSub => widget.type == 'substitution';
-  bool get _isCard =>
-      widget.type == 'yellow_card' || widget.type == 'red_card';
+  bool get _isCard => widget.type == 'yellow_card' || widget.type == 'red_card';
 
   void _tap(Player p) {
     final status = widget.cardStatus(p.id);
@@ -771,10 +782,14 @@ class _EventPickerSheetState extends State<_EventPickerSheet> {
     final disabled = status.hasRed || isOut;
 
     var title = p.name;
-    var sub = '#${p.number ?? ''} • ${p.position ?? ''}';
+    var sub = [
+      if ((p.number ?? 0) != 0) '#${p.number}',
+      if (p.position != null) p.position!,
+    ].join(' • ');
     if (confirming) {
       if (widget.type == 'yellow_card') {
-        title = status.yellow > 0 ? 'Confirmar Expulsión' : 'Confirmar Amarilla';
+        title =
+            status.yellow > 0 ? 'Confirmar Expulsión' : 'Confirmar Amarilla';
         sub = status.yellow > 0 ? '2da Amarilla = Roja' : 'Toque de nuevo';
       } else {
         title = 'Confirmar Roja';
@@ -787,7 +802,7 @@ class _EventPickerSheetState extends State<_EventPickerSheet> {
       leading: Stack(clipBehavior: Clip.none, children: [
         p.photoUrl != null
             ? Avatar(url: p.photoUrl, size: 40)
-            : CircleAvatar(child: Text('${p.number ?? '#'}')),
+            : CircleAvatar(child: Text(dorsal(p.number))),
         if (status.yellow > 0 && !status.hasRed)
           Positioned(
               right: -2,
@@ -821,7 +836,8 @@ class _EventPickerSheetState extends State<_EventPickerSheet> {
         widget.players.where((p) => widget.onFieldIds.contains(p.id)).toList();
     final bench =
         widget.players.where((p) => !widget.onFieldIds.contains(p.id)).toList();
-    final outName = widget.players.where((p) => p.id == _outId).firstOrNull?.name;
+    final outName =
+        widget.players.where((p) => p.id == _outId).firstOrNull?.name;
 
     Widget label(String t) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -901,8 +917,8 @@ class _EventPickerSheetState extends State<_EventPickerSheet> {
               color: AppColors.danger.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(_error!,
-                style: const TextStyle(color: AppColors.danger)),
+            child:
+                Text(_error!, style: const TextStyle(color: AppColors.danger)),
           ),
         if (widget.players.isEmpty)
           const Padding(

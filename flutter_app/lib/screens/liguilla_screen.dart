@@ -102,7 +102,9 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
       if (mounted) showToast(context, success, ToastType.success);
       await _load();
     } catch (e) {
-      if (mounted) showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error: ${errorMessage(e)}', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -123,25 +125,24 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
       return;
     }
     await _run(
-      () => _insertRound(
-          roundQF, quarterFinalPairs(_data.qualified), existing),
+      () => _insertRound(roundQF, quarterFinalPairs(_data.qualified), existing),
       'Cuartos de final generados con éxito',
     );
   }
 
   List<RankedTeam> _winners(List<MatchModel> matches) => matches
-      .map((m) => playoffWinner(
-            homeTeamId: m.homeTeamId,
-            awayTeamId: m.awayTeamId,
-            homeScore: m.homeScore,
-            awayScore: m.awayScore,
-            qualified: _data.qualified,
-          ))
-      .whereType<RankedTeam>()
-      .fold<List<RankedTeam>>([], (acc, t) {
-    if (!acc.any((x) => x.id == t.id)) acc.add(t);
-    return acc;
-  });
+          .map((m) => playoffWinner(
+                homeTeamId: m.homeTeamId,
+                awayTeamId: m.awayTeamId,
+                homeScore: m.homeScore,
+                awayScore: m.awayScore,
+                qualified: _data.qualified,
+              ))
+          .whereType<RankedTeam>()
+          .fold<List<RankedTeam>>([], (acc, t) {
+        if (!acc.any((x) => x.id == t.id)) acc.add(t);
+        return acc;
+      });
 
   Future<void> _generateSF() async {
     if (!_canEdit) return;
@@ -167,8 +168,8 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
     if (!_canEdit) return;
     final finished = _data.sf.where((m) => m.isFinished).toList();
     if (finished.length < 2) {
-      showToast(context, 'Se requieren 2 semifinales finalizadas.',
-          ToastType.info);
+      showToast(
+          context, 'Se requieren 2 semifinales finalizadas.', ToastType.info);
       return;
     }
     await _run(() async {
@@ -201,8 +202,8 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
     await _run(() async {
       await db
           .from('matches')
-          .update({'status': 'scheduled', 'home_score': 0, 'away_score': 0})
-          .eq('id', m.id);
+          .update({'status': 'scheduled', 'home_score': 0, 'away_score': 0}).eq(
+              'id', m.id);
       await db.from('match_events').delete().eq('match_id', m.id);
     }, 'Partido reiniciado');
   }
@@ -210,8 +211,9 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
   Future<void> _export() async {
     setState(() => _exporting = true);
     try {
-      final slug =
-          (_league?.name ?? 'liga').replaceAll(RegExp(r'\s+'), '-').toLowerCase();
+      final slug = (_league?.name ?? 'liga')
+          .replaceAll(RegExp(r'\s+'), '-')
+          .toLowerCase();
       await captureAndShare(_exportKey, 'liguilla-$slug.png');
       if (mounted) showToast(context, 'Imagen generada', ToastType.success);
     } catch (e) {
@@ -237,9 +239,8 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
             IconButton(
               tooltip: 'Descargar imagen',
               icon: const Icon(Icons.download),
-              onPressed: _exporting || _data.qualified.length < 8
-                  ? null
-                  : _export,
+              onPressed:
+                  _exporting || _data.qualified.length < 8 ? null : _export,
             ),
           ],
           bottom: PreferredSize(

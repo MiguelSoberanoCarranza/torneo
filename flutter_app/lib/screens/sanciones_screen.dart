@@ -36,7 +36,9 @@ class _SancionesScreenState extends State<SancionesScreen> {
       _selectedId = _leagues.isNotEmpty ? _leagues.first.id : null;
       await _load();
     } catch (e) {
-      if (mounted) showToast(context, 'Error al cargar tus ligas', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al cargar tus ligas', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -64,7 +66,9 @@ class _SancionesScreenState extends State<SancionesScreen> {
           .order('created_at', ascending: false);
       _sanctions = sanctions.map(TeamSanction.fromJson).toList();
     } catch (e) {
-      if (mounted) showToast(context, 'Error al cargar sanciones', ToastType.error);
+      if (mounted) {
+        showToast(context, 'Error al cargar sanciones', ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -124,8 +128,7 @@ class _SancionesScreenState extends State<SancionesScreen> {
                 LabeledField(
                   label: 'Puntos',
                   child: TextField(
-                      controller: points,
-                      keyboardType: TextInputType.number),
+                      controller: points, keyboardType: TextInputType.number),
                 ),
                 LabeledField(
                   label: 'Motivo',
@@ -148,7 +151,8 @@ class _SancionesScreenState extends State<SancionesScreen> {
                             return;
                           }
                           if (amount <= 0) {
-                            showToast(context,
+                            showToast(
+                                context,
                                 'Indica una cantidad de puntos válida',
                                 ToastType.error);
                             return;
@@ -175,7 +179,8 @@ class _SancionesScreenState extends State<SancionesScreen> {
                           } catch (e) {
                             setLocal(() => saving = false);
                             if (mounted) {
-                              showToast(context, errorMessage(e), ToastType.error);
+                              showToast(
+                                  context, errorMessage(e), ToastType.error);
                             }
                           }
                         },
@@ -222,11 +227,14 @@ class _SancionesScreenState extends State<SancionesScreen> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
-        title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Sanciones'),
-          Text('Ajustes disciplinarios de puntos por equipo',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        ]),
+        title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Sanciones'),
+              Text('Ajustes disciplinarios de puntos por equipo',
+                  style:
+                      TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ]),
       ),
       floatingActionButton: _canManage
           ? FloatingActionButton.extended(
@@ -242,78 +250,91 @@ class _SancionesScreenState extends State<SancionesScreen> {
               message:
                   'Solo los administradores de liga pueden gestionar sanciones disciplinarias.',
             )
-          : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), children: [
-              LeagueDropdown(
-                leagues: _leagues,
-                selectedId: _selectedId,
-                onChanged: (id) {
-                  _selectedId = id;
-                  _load();
-                },
-              ),
-              if (adjusted.isNotEmpty) ...[
-                SectionTitle('Saldo por equipo — $leagueName'),
-                Card(
-                  child: Column(children: [
-                    for (final x in adjusted)
-                      ListTile(
-                        leading: TeamShield(
-                            url: x.team.shieldUrl, name: x.team.name, size: 32),
-                        title: Text(x.team.name),
-                        trailing: Text(
-                          '${x.adj > 0 ? '+' : ''}${x.adj} pts',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: x.adj > 0
-                                  ? AppColors.success
-                                  : AppColors.danger),
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+              children: [
+                  LeagueDropdown(
+                    leagues: _leagues,
+                    selectedId: _selectedId,
+                    onChanged: (id) {
+                      _selectedId = id;
+                      _load();
+                    },
+                  ),
+                  if (adjusted.isNotEmpty) ...[
+                    SectionTitle('Saldo por equipo — $leagueName'),
+                    Card(
+                      child: Column(children: [
+                        for (final x in adjusted)
+                          ListTile(
+                            leading: TeamShield(
+                                url: x.team.shieldUrl,
+                                name: x.team.name,
+                                size: 32),
+                            title: Text(x.team.name),
+                            trailing: Text(
+                              '${x.adj > 0 ? '+' : ''}${x.adj} pts',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: x.adj > 0
+                                      ? AppColors.success
+                                      : AppColors.danger),
+                            ),
+                          ),
+                      ]),
+                    ),
+                  ],
+                  const SectionTitle('Historial'),
+                  if (_loading)
+                    const Padding(
+                        padding: EdgeInsets.all(24), child: LoadingView())
+                  else if (_sanctions.isEmpty)
+                    const EmptyState(
+                        icon: Icons.gavel,
+                        title: 'No hay sanciones registradas en esta liga.')
+                  else
+                    for (final s in _sanctions)
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: (s.pointsDelta > 0
+                                    ? AppColors.success
+                                    : AppColors.danger)
+                                .withValues(alpha: 0.2),
+                            child: Text(
+                                '${s.pointsDelta > 0 ? '+' : ''}${s.pointsDelta}',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: s.pointsDelta > 0
+                                        ? AppColors.success
+                                        : AppColors.danger)),
+                          ),
+                          title: Text(
+                              '${s.teamName ?? 'Equipo'} · ${formatDateMedium(s.createdAt)}'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(s.reason),
+                              if (s.creatorName != null)
+                                Text('Por: ${s.creatorName}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary)),
+                            ],
+                          ),
+                          trailing: _canManage
+                              ? IconButton(
+                                  tooltip: 'Eliminar sanción',
+                                  icon: const Icon(Icons.delete),
+                                  onPressed: () => _delete(s),
+                                )
+                              : null,
                         ),
                       ),
-                  ]),
-                ),
-              ],
-              const SectionTitle('Historial'),
-              if (_loading)
-                const Padding(padding: EdgeInsets.all(24), child: LoadingView())
-              else if (_sanctions.isEmpty)
-                const EmptyState(
-                    icon: Icons.gavel,
-                    title: 'No hay sanciones registradas en esta liga.')
-              else
-                for (final s in _sanctions)
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: (s.pointsDelta > 0
-                                ? AppColors.success
-                                : AppColors.danger)
-                            .withValues(alpha: 0.2),
-                        child: Text(
-                            '${s.pointsDelta > 0 ? '+' : ''}${s.pointsDelta}',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: s.pointsDelta > 0
-                                    ? AppColors.success
-                                    : AppColors.danger)),
-                      ),
-                      title: Text(
-                          '${s.teamName ?? 'Equipo'} · ${formatDateMedium(s.createdAt)}'),
-                      subtitle: Text([
-                        s.reason,
-                        if (s.creatorName != null) 'Por: ${s.creatorName}',
-                      ].join('\n')),
-                      isThreeLine: s.creatorName != null,
-                      trailing: _canManage
-                          ? IconButton(
-                              tooltip: 'Eliminar sanción',
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _delete(s),
-                            )
-                          : null,
-                    ),
-                  ),
-            ]),
+                ]),
     );
   }
 }

@@ -7,8 +7,8 @@ import 'package:share_plus/share_plus.dart';
 /// Captura un RepaintBoundary y lo comparte / descarga como PNG.
 /// Sustituye a utils/imageExporter.ts (modern-screenshot / html-to-image).
 Future<void> captureAndShare(GlobalKey boundaryKey, String fileName) async {
-  final boundary = boundaryKey.currentContext?.findRenderObject()
-      as RenderRepaintBoundary?;
+  final boundary =
+      boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
   if (boundary == null) throw Exception('Elemento no encontrado');
   final image = await boundary.toImage(pixelRatio: 3);
   final data = await image.toByteData(format: ui.ImageByteFormat.png);

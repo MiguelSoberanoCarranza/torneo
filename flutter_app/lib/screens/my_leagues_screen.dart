@@ -87,7 +87,9 @@ class _MyLeaguesScreenState extends State<MyLeaguesScreen> {
   Future<void> _copyPublicLink(League l) async {
     final url = publicTournamentUrl(l.id);
     await Clipboard.setData(ClipboardData(text: url));
-    if (mounted) showToast(context, 'Enlace público copiado: $url', ToastType.success);
+    if (mounted) {
+      showToast(context, 'Enlace público copiado: $url', ToastType.success);
+    }
   }
 
   Widget _card(League l) {
