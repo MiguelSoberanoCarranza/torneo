@@ -26,6 +26,8 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
   int _maxPlayers = 20;
   bool _twoLegged = false;
   bool _allowDraws = true;
+  // Valores permitidos por el CHECK de leagues.status.
+  String _status = 'upcoming';
   String? _logoUrl;
   PickedImage? _logo;
   bool _loading = false;
@@ -61,6 +63,9 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
       _logoUrl = l.logoUrl;
       _twoLegged = l.settings['two_legged'] == true;
       _allowDraws = l.settings['allow_draws'] != false;
+      if (const {'upcoming', 'active', 'finished'}.contains(l.status)) {
+        _status = l.status!;
+      }
     } catch (e) {
       if (mounted) showToast(context, errorMessage(e), ToastType.error);
     } finally {
@@ -101,13 +106,12 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
         'match_duration': int.tryParse(_duration.text) ?? 0,
         'logo_url': logoUrl,
         'settings': {'two_legged': _twoLegged, 'allow_draws': _allowDraws},
+        'status': _status,
       };
       if (_isEditing) {
         await db.from('leagues').update(data).eq('id', widget.leagueId!);
       } else {
-        await db
-            .from('leagues')
-            .insert({'owner_id': user.id, 'status': 'upcoming', ...data});
+        await db.from('leagues').insert({'owner_id': user.id, ...data});
         await session.refresh();
       }
       if (!mounted) return;
@@ -217,6 +221,32 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                       hintText:
                           'Reglas breves, premios o detalles del torneo...'),
                 ),
+              ),
+              const SectionTitle('Estado del Torneo'),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                      value: 'upcoming',
+                      icon: Icon(Icons.schedule),
+                      label: Text('Próxima')),
+                  ButtonSegment(
+                      value: 'active',
+                      icon: Icon(Icons.play_circle),
+                      label: Text('En curso')),
+                  ButtonSegment(
+                      value: 'finished',
+                      icon: Icon(Icons.flag),
+                      label: Text('Finalizada')),
+                ],
+                selected: {_status},
+                onSelectionChanged: (v) => setState(() => _status = v.first),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                    'Se muestra en Detalles de Liga. No oculta la liga: para eso usa "Desactivar" en Mis Ligas.',
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary)),
               ),
               const SectionTitle('Formato de Juego'),
               SegmentedButton<String>(
