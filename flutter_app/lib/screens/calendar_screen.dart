@@ -109,6 +109,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (_nextRoundOnly && (m.roundNumber ?? 0) != next) continue;
       map.putIfAbsent(m.roundNumber ?? 0, () => []).add(m);
     }
+    // Si una jornada quedó repartida en varios días (se pospuso una parte),
+    // primero se muestran los partidos pendientes.
+    for (final list in map.values) {
+      final days = list
+          .where((m) => m.startTime != null)
+          .map((m) => formatDateMedium(m.startTime!.toLocal()))
+          .toSet();
+      if (days.length > 1) {
+        list.sort((a, b) {
+          final pa = canMove(a) ? 0 : 1, pb = canMove(b) ? 0 : 1;
+          if (pa != pb) return pa - pb;
+          return (a.startTime ?? DateTime(0))
+              .compareTo(b.startTime ?? DateTime(0));
+        });
+      }
+    }
     return Map.fromEntries(
         map.entries.toList()..sort((a, b) => a.key.compareTo(b.key)));
   }
@@ -544,7 +560,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     highlight: '$round',
                     subtitle: matches.isEmpty
                         ? 'FECHA'
-                        : formatDateLong(matches.first.startTime),
+                        : formatDateLong(_roundDisplayDate(round, matches)),
                     child: Column(children: [
                       for (final m in matches) _exportRow(m),
                     ]),
@@ -733,6 +749,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  /// Fecha que se muestra para la jornada: la de sus partidos pendientes
+  /// (p. ej. tras posponerla); si ya se jugó toda, la del primer partido.
+  DateTime? _roundDisplayDate(int round, List<MatchModel> matches) =>
+      roundDate(matches, round) ?? matches.first.startTime;
+
+  /// Si parte de la jornada se jugó otro día (antes de posponer el resto).
+  DateTime? _playedOnOtherDay(int round, List<MatchModel> matches) {
+    final pending = roundDate(matches, round);
+    if (pending == null) return null;
+    final played = matches
+        .where((m) => m.isFinished && m.startTime != null)
+        .map((m) => m.startTime!.toLocal())
+        .where((d) => DateTime(d.year, d.month, d.day) != pending)
+        .toList()
+      ..sort();
+    return played.isEmpty ? null : played.first;
+  }
+
   Widget _roundHeader(int round, List<MatchModel> matches) {
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
@@ -743,9 +777,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Text('Jornada $round',
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(formatDateLong(matches.first.startTime),
+            Text(formatDateLong(_roundDisplayDate(round, matches)),
                 style: const TextStyle(
                     fontSize: 12, color: AppColors.textSecondary)),
+            if (_playedOnOtherDay(round, matches) case final played?)
+              Text('Jugados el ${formatDateShort(played)}',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textSecondary)),
           ]),
         ),
         if (_canManage && roundDate(matches, round) != null)
