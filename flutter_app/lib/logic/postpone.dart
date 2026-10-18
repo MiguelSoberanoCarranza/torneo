@@ -73,17 +73,48 @@ List<DateTime> pendingDays(Iterable<MatchModel> matches, int round) => (matches
     .toList()
   ..sort());
 
-/// Ids de partidos repetidos: mismo par de equipos en la misma jornada.
-Set<String> duplicateIds(Iterable<MatchModel> matches) {
-  final groups = <String, List<String>>{};
+Map<String, List<MatchModel>> _groupByPair(Iterable<MatchModel> matches) {
+  final groups = <String, List<MatchModel>>{};
   for (final m in matches) {
     final pair = [m.homeTeamId, m.awayTeamId]..sort();
-    groups
-        .putIfAbsent('${m.roundNumber}|${pair.join('|')}', () => [])
-        .add(m.id);
+    groups.putIfAbsent('${m.roundNumber}|${pair.join('|')}', () => []).add(m);
   }
-  return {
-    for (final ids in groups.values)
-      if (ids.length > 1) ...ids,
-  };
+  return groups;
+}
+
+/// Ids de partidos repetidos: mismo par de equipos en la misma jornada.
+Set<String> duplicateIds(Iterable<MatchModel> matches) => {
+      for (final g in _groupByPair(matches).values)
+        if (g.length > 1) ...g.map((m) => m.id),
+    };
+
+/// Copias repetidas sin jugar que se pueden borrar:
+/// - si el enfrentamiento ya se jugó (o está en curso), todas sus copias
+///   pendientes;
+/// - si no, todas menos la más próxima a partir de hoy ([now]); si todas
+///   quedaron en el pasado, se conserva la más reciente.
+/// Los partidos sin fecha nunca se tocan.
+List<MatchModel> duplicatesToRemove(Iterable<MatchModel> matches,
+    {DateTime? now}) {
+  final today = _day(now ?? DateTime.now());
+  final out = <MatchModel>[];
+  for (final g in _groupByPair(matches).values) {
+    if (g.length < 2) continue;
+    final pending = g.where(canMove).toList()
+      ..sort((a, b) => a.startTime!.compareTo(b.startTime!));
+    if (pending.isEmpty) continue;
+    if (g.any((m) => m.isFinished || m.isLive)) {
+      out.addAll(pending);
+      continue;
+    }
+    final keep = pending.firstWhere(
+        (m) => !_day(m.startTime!.toLocal()).isBefore(today),
+        orElse: () => pending.last);
+    out.addAll(pending.where((m) => m != keep));
+  }
+  out.sort((a, b) {
+    final r = (a.roundNumber ?? 0).compareTo(b.roundNumber ?? 0);
+    return r != 0 ? r : a.startTime!.compareTo(b.startTime!);
+  });
+  return out;
 }

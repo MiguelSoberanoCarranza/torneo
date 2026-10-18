@@ -12,7 +12,41 @@ MatchModel m(String id, int round, DateTime start,
         startTime: start,
         status: status);
 
+MatchModel p(String id, int round, String home, String away, DateTime? start,
+        [String status = 'scheduled']) =>
+    MatchModel(
+        id: id,
+        homeTeamId: home,
+        awayTeamId: away,
+        roundNumber: round,
+        startTime: start,
+        status: status);
+
 void main() {
+  test('copias repetidas a borrar (caso LIGA MX)', () {
+    final list = [
+      // J1: jugado en enero + copia pendiente en noviembre -> borrar copia.
+      p('j1-ene', 1, 'pumas', 'halcones', DateTime(2026, 1, 17), 'finished'),
+      p('j1-nov', 1, 'pumas', 'halcones', DateTime(2026, 11, 21)),
+      p('j1-oct', 1, 'halcones', 'pumas', DateTime(2026, 10, 24)),
+      // J2: tres copias pendientes -> se queda la más próxima desde hoy.
+      p('j2-jun', 2, 'atl', 'halcones', DateTime(2026, 6, 13)),
+      p('j2-oct', 2, 'atl', 'halcones', DateTime(2026, 10, 31)),
+      p('j2-nov', 2, 'halcones', 'atl', DateTime(2026, 11, 28)),
+      // J9: todas las copias en el pasado -> se queda la más reciente.
+      p('j9-a', 9, 'x', 'y', DateTime(2026, 8, 1)),
+      p('j9-b', 9, 'x', 'y', DateTime(2026, 9, 1)),
+      // J3: sin repetir -> no se toca.
+      p('j3', 3, 'toros', 'halcones', DateTime(2026, 12, 5)),
+      // Sin fecha -> nunca se toca.
+      p('x1', 200, 'a', 'b', null),
+      p('x2', 200, 'a', 'b', null),
+    ];
+    expect(
+        duplicatesToRemove(list, now: DateTime(2026, 10, 18)).map((m) => m.id),
+        ['j1-oct', 'j1-nov', 'j2-jun', 'j2-nov', 'j9-a']);
+  });
+
   final matches = [
     m('j14', 14, DateTime(2026, 10, 11, 9)),
     m('j15a', 15, DateTime(2026, 10, 18, 9)),

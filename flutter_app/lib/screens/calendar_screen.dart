@@ -380,6 +380,140 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  // ---------------- Partidos repetidos ----------------
+
+  List<Widget> _duplicatesBanner() {
+    final toRemove = duplicatesToRemove(_matches);
+    if (toRemove.isEmpty) return const [];
+    return [
+      Card(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            const Icon(Icons.warning_amber, color: AppColors.warning),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Hay ${toRemove.length} partidos repetidos sin jugar '
+                  'en esta liga.'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  minimumSize: const Size(0, 40),
+                  textStyle: const TextStyle(
+                      fontFamily: 'Lexend', fontWeight: FontWeight.bold)),
+              onPressed: _updating ? null : () => _removeDuplicates(toRemove),
+              child: const Text('Eliminar repetidos'),
+            ),
+          ]),
+        ),
+      ),
+    ];
+  }
+
+  /// Borra las copias repetidas sin jugar de la liga seleccionada.
+  /// Solo el dueño de la liga ve el botón, y el borrado se filtra también por
+  /// league_id para no tocar nunca partidos de otra liga.
+  Future<void> _removeDuplicates(List<MatchModel> toRemove) async {
+    final leagueId = _selectedId;
+    if (leagueId == null || !_isOwner) return;
+    final target = toRemove.where((m) => m.leagueId == leagueId).toList();
+    if (target.isEmpty) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Eliminar ${target.length} partidos repetidos'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Liga: ${_league?.name ?? ''}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text(
+                  'Solo copias sin jugar. De cada partido repetido se conserva '
+                  'la fecha más próxima desde hoy; si ese partido ya se jugó, '
+                  'se borran todas sus copias pendientes. Los partidos jugados '
+                  'y los que no tienen fecha no se tocan.',
+                  style:
+                      TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              const Divider(),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final m in target)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                              'J${m.roundNumber} · ${formatDateShort(m.startTime?.toLocal())} · '
+                              '${m.homeTeam?.name ?? '?'} vs ${m.awayTeam?.name ?? '?'}',
+                              style: const TextStyle(fontSize: 13)),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(),
+              const Text('No se puede deshacer.',
+                  style: TextStyle(color: AppColors.danger)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                minimumSize: const Size(0, 44),
+                textStyle: const TextStyle(
+                    fontFamily: 'Lexend', fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _updating = true);
+    try {
+      final rows = await db
+          .from('matches')
+          .delete()
+          .eq('league_id', leagueId)
+          .inFilter('id', target.map((m) => m.id).toList())
+          .select('id');
+      if (mounted) {
+        if (rows.length == target.length) {
+          showToast(context, '${rows.length} partidos repetidos eliminados',
+              ToastType.success);
+        } else {
+          showToast(
+              context,
+              'Se eliminaron ${rows.length} de ${target.length}. '
+              'La base de datos no permitió borrar el resto.',
+              ToastType.error);
+        }
+      }
+      await _loadLeagueData();
+    } catch (e) {
+      if (mounted) {
+        showToast(
+            context, 'Error al eliminar: ${errorMessage(e)}', ToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
   // ---------------- Posponer jornada ----------------
 
   Future<void> _postponeRound(int round) async {
@@ -739,6 +873,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
                     children: [
+                      if (_isOwner) ..._duplicatesBanner(),
                       for (final entry in grouped.entries) ...[
                         _roundHeader(entry.key, entry.value),
                         for (final m in entry.value) _matchCard(m),
@@ -789,7 +924,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       fontSize: 11, color: AppColors.textSecondary)),
             if (days.length > 1)
               Text(
-                  '⚠ Pendientes en ${days.length} fechas: '
+                  'Pendientes en ${days.length} fechas: '
                   '${days.map(formatDateShort).join(', ')}',
                   style:
                       const TextStyle(fontSize: 11, color: AppColors.warning)),
