@@ -660,15 +660,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text(formatTime(m.startTime),
                     style: const TextStyle(color: AppColors.textSecondary)),
                 const Spacer(),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Póster del partido',
+                  icon: const Icon(Icons.image, size: 18),
+                  onPressed: () => showPosterDialog(context, m),
+                ),
                 // Acciones de partido finalizado en un menú (antes eran dos
                 // enlaces dentro del marcador y saturaban la tarjeta).
                 if (m.isFinished && _canOperate)
                   PopupMenuButton<String>(
                     tooltip: 'Acciones',
                     icon: const Icon(Icons.more_vert, size: 20),
-                    onSelected: (v) =>
-                        v == 'edit' ? _manual(m) : _resetMatch(m),
+                    onSelected: (v) => switch (v) {
+                      'poster' => showPosterDialog(context, m),
+                      'edit' => _manual(m),
+                      _ => _resetMatch(m),
+                    },
                     itemBuilder: (_) => const [
+                      PopupMenuItem(
+                          value: 'poster',
+                          child: ListTile(
+                              leading: Icon(Icons.image),
+                              title: Text('Póster del partido'))),
                       PopupMenuItem(
                           value: 'edit',
                           child: ListTile(
@@ -682,12 +696,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               title: Text('Reiniciar partido'))),
                     ],
                   ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'Póster del partido',
-                  icon: const Icon(Icons.image, size: 18),
-                  onPressed: () => showPosterDialog(context, m),
-                ),
                 if (m.isScheduled && _canManage)
                   IconButton(
                     visualDensity: VisualDensity.compact,
