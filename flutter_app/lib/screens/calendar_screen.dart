@@ -10,6 +10,7 @@ import '../logic/postpone.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/main_shell.dart';
 import '../widgets/manual_result_sheet.dart';
 import '../widgets/poster_dialog.dart';
 import '../widgets/stats_tables.dart';
@@ -871,7 +872,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         title: 'No hay partidos programados.'),
                   ])
                 : ListView(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, kTabBarSpace),
                     children: [
                       if (_isOwner) ..._duplicatesBanner(),
                       for (final entry in grouped.entries) ...[

@@ -9,6 +9,7 @@ import '../core/ui_helpers.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/main_shell.dart';
 
 class MyLeaguesScreen extends StatefulWidget {
   const MyLeaguesScreen({super.key});
@@ -181,16 +182,19 @@ class _MyLeaguesScreenState extends State<MyLeaguesScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView(padding: const EdgeInsets.all(16), children: [
-                    if (active.isNotEmpty) ...[
-                      SectionTitle('Activas (${active.length})'),
-                      ...active.map(_card),
-                    ],
-                    if (inactive.isNotEmpty) ...[
-                      SectionTitle('Inactivas (${inactive.length})'),
-                      ...inactive.map(_card),
-                    ],
-                  ]),
+                  child: ListView(
+                      padding:
+                          const EdgeInsets.fromLTRB(16, 16, 16, kTabBarSpace),
+                      children: [
+                        if (active.isNotEmpty) ...[
+                          SectionTitle('Activas (${active.length})'),
+                          ...active.map(_card),
+                        ],
+                        if (inactive.isNotEmpty) ...[
+                          SectionTitle('Inactivas (${inactive.length})'),
+                          ...inactive.map(_card),
+                        ],
+                      ]),
                 ),
     );
   }

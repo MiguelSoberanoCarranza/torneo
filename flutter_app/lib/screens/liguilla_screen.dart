@@ -11,6 +11,7 @@ import '../logic/liguilla.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/main_shell.dart';
 import '../widgets/liguilla_bracket.dart';
 import '../widgets/manual_result_sheet.dart';
 
@@ -267,29 +268,32 @@ class _LiguillaScreenState extends State<LiguillaScreen> {
                     message:
                         'Se necesitan 8 equipos clasificados para iniciar la liguilla.',
                   )
-                : ListView(padding: const EdgeInsets.all(16), children: [
-                    if (_canEdit) _adminActions(),
-                    RepaintBoundary(
-                      key: _exportKey,
-                      child: Container(
-                        color: AppColors.backgroundDark,
-                        padding: const EdgeInsets.all(8),
-                        child: _data.qf.isEmpty
-                            ? _readyView()
-                            : LiguillaBracket(
-                                data: _data,
-                                canEdit: _canEdit,
-                                onMatchTap: (m) {
-                                  if (_canEdit && m.isScheduled) {
-                                    context.push('/referee/${m.id}');
-                                  }
-                                },
-                                onEdit: _editMatch,
-                                onReset: _resetMatch,
-                              ),
-                      ),
-                    ),
-                  ]),
+                : ListView(
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 16, 16, kTabBarSpace),
+                    children: [
+                        if (_canEdit) _adminActions(),
+                        RepaintBoundary(
+                          key: _exportKey,
+                          child: Container(
+                            color: AppColors.backgroundDark,
+                            padding: const EdgeInsets.all(8),
+                            child: _data.qf.isEmpty
+                                ? _readyView()
+                                : LiguillaBracket(
+                                    data: _data,
+                                    canEdit: _canEdit,
+                                    onMatchTap: (m) {
+                                      if (_canEdit && m.isScheduled) {
+                                        context.push('/referee/${m.id}');
+                                      }
+                                    },
+                                    onEdit: _editMatch,
+                                    onReset: _resetMatch,
+                                  ),
+                          ),
+                        ),
+                      ]),
       ),
     );
   }

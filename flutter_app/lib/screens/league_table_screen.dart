@@ -7,6 +7,7 @@ import '../logic/standings.dart';
 import '../logic/stats.dart';
 import '../models/models.dart';
 import '../widgets/common.dart';
+import '../widgets/main_shell.dart';
 import '../widgets/stats_tables.dart';
 
 class LeagueTableScreen extends StatefulWidget {
@@ -185,15 +186,24 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
               ? EmptyState(
                   icon: Icons.groups, title: 'No hay datos en "$_leagueName"')
               : TabBarView(controller: _tabs, children: [
-                  ListView(padding: const EdgeInsets.all(12), children: [
-                    StandingsTable(standings: _standings),
-                  ]),
-                  ListView(padding: const EdgeInsets.all(12), children: [
-                    ScorersTable(scorers: _stats.scorers),
-                  ]),
-                  ListView(padding: const EdgeInsets.all(12), children: [
-                    CardsTable(stats: _stats.cards),
-                  ]),
+                  ListView(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 12, 12, kTabBarSpace),
+                      children: [
+                        StandingsTable(standings: _standings),
+                      ]),
+                  ListView(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 12, 12, kTabBarSpace),
+                      children: [
+                        ScorersTable(scorers: _stats.scorers),
+                      ]),
+                  ListView(
+                      padding:
+                          const EdgeInsets.fromLTRB(12, 12, 12, kTabBarSpace),
+                      children: [
+                        CardsTable(stats: _stats.cards),
+                      ]),
                 ]),
     );
   }

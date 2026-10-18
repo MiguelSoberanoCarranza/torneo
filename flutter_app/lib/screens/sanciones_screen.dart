@@ -8,6 +8,7 @@ import '../logic/standings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/main_shell.dart';
 
 class SancionesScreen extends StatefulWidget {
   const SancionesScreen({super.key});
@@ -237,10 +238,14 @@ class _SancionesScreenState extends State<SancionesScreen> {
             ]),
       ),
       floatingActionButton: _canManage
-          ? FloatingActionButton.extended(
-              onPressed: _openForm,
-              icon: const Icon(Icons.gavel),
-              label: const Text('Registrar sanción'),
+          ? Padding(
+              // Encima de la barra flotante del menú.
+              padding: const EdgeInsets.only(bottom: kTabBarSpace - 30),
+              child: FloatingActionButton.extended(
+                onPressed: _openForm,
+                icon: const Icon(Icons.gavel),
+                label: const Text('Registrar sanción'),
+              ),
             )
           : null,
       body: !_loading && _leagues.isEmpty
@@ -251,7 +256,7 @@ class _SancionesScreenState extends State<SancionesScreen> {
                   'Solo los administradores de liga pueden gestionar sanciones disciplinarias.',
             )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, kTabBarSpace + 72),
               children: [
                   LeagueDropdown(
                     leagues: _leagues,

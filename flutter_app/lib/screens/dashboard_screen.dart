@@ -8,6 +8,7 @@ import '../core/ui_helpers.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/main_shell.dart';
 import '../widgets/match_cards.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -135,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : RefreshIndicator(
                   onRefresh: _loadLeagues,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, kTabBarSpace),
                     children: [
                       _header(),
                       const SizedBox(height: 12),
