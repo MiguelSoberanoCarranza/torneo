@@ -6,6 +6,7 @@ import '../core/repo.dart';
 import '../core/session.dart';
 import '../core/supabase.dart';
 import '../core/ui_helpers.dart';
+import '../logic/postpone.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
@@ -361,6 +362,156 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  // ---------------- Posponer jornada ----------------
+
+  Future<void> _postponeRound(int round) async {
+    final current = roundDate(_matches, round);
+    if (current == null) return;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // Por defecto: mismo día de la semana, la siguiente semana (o el próximo
+    // que aún no pasa si la jornada quedó atrasada).
+    var newDate = current.add(const Duration(days: 7));
+    while (!newDate.isAfter(today)) {
+      newDate = newDate.add(const Duration(days: 7));
+    }
+    // Una jornada atrasada se reprograma sola; las siguientes ya tienen fecha.
+    var shift = !current.isBefore(today);
+
+    final plan = await showDialog<PostponePlan>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setLocal) {
+        final plan = planPostpone(_matches,
+            round: round, newDate: newDate, shiftFollowing: shift);
+        final rounds = plan.rounds;
+        String roundLine(int r) {
+          final moves =
+              plan.moves.where((x) => (x.match.roundNumber ?? 0) == r);
+          final from = moves
+              .map((x) => x.match.startTime!.toLocal())
+              .reduce((a, b) => a.isBefore(b) ? a : b);
+          final to = moves
+              .map((x) => x.newStart)
+              .reduce((a, b) => a.isBefore(b) ? a : b);
+          return 'J$r: ${formatDateShort(from)} » ${formatDateShort(to)}';
+        }
+
+        return AlertDialog(
+          title: Text('Posponer Jornada $round'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Fecha actual: ${formatDateLong(current)}',
+                      style: const TextStyle(color: AppColors.textSecondary)),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.calendar_today, size: 18),
+                    label: Text('Nueva fecha: ${formatDateLong(newDate)}'),
+                    onPressed: () async {
+                      final d = await showDatePicker(
+                        context: ctx,
+                        initialDate: newDate,
+                        firstDate: DateTime(current.year - 1),
+                        lastDate: DateTime(current.year + 2),
+                        locale: const Locale('es'),
+                      );
+                      if (d != null) setLocal(() => newDate = d);
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  if (!current.isBefore(today))
+                    Wrap(spacing: 6, children: [
+                      for (final w in const [1, 2])
+                        ActionChip(
+                          label: Text('+$w semana${w > 1 ? 's' : ''}'),
+                          onPressed: () => setLocal(() =>
+                              newDate = current.add(Duration(days: 7 * w))),
+                        ),
+                    ]),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: shift,
+                    onChanged: (v) => setLocal(() => shift = v),
+                    title: const Text('Recorrer jornadas posteriores'),
+                    subtitle: const Text(
+                        'Mueve también las siguientes jornadas los mismos días'),
+                  ),
+                  const Divider(),
+                  if (plan.isEmpty)
+                    const Text('Elige una fecha distinta a la actual.',
+                        style: TextStyle(color: AppColors.textSecondary))
+                  else ...[
+                    Text(
+                      'Se moverán ${plan.moves.length} partidos '
+                      '${plan.days > 0 ? '${plan.days} días después' : '${-plan.days} días antes'}'
+                      '${rounds.length > 1 ? ' (jornadas ${rounds.first} a ${rounds.last})' : ''}.',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final r in rounds.take(4))
+                      Text(roundLine(r),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                    if (rounds.length > 4)
+                      Text('… y ${rounds.length - 4} jornadas más',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                    const SizedBox(height: 6),
+                    const Text(
+                        'Se conserva la hora de cada partido. Los partidos ya jugados no se mueven.',
+                        style: TextStyle(fontSize: 11)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: plan.isEmpty ? null : () => Navigator.pop(ctx, plan),
+              child: const Text('Posponer'),
+            ),
+          ],
+        );
+      }),
+    );
+    if (plan == null || plan.isEmpty) return;
+
+    setState(() => _updating = true);
+    var failed = 0;
+    try {
+      await Future.wait(plan.moves.map((x) async {
+        try {
+          await db
+              .from('matches')
+              .update({'start_time': x.newStart.toUtc().toIso8601String()}).eq(
+                  'id', x.match.id);
+        } catch (_) {
+          failed++;
+        }
+      }));
+      if (mounted) {
+        if (failed == 0) {
+          showToast(context, 'Jornada $round pospuesta', ToastType.success);
+        } else {
+          showToast(
+              context,
+              'No se pudieron mover $failed de ${plan.moves.length} partidos',
+              ToastType.error);
+        }
+      }
+      await _loadLeagueData();
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
   Future<void> _exportRound(int round, List<MatchModel> matches) async {
     final key = GlobalKey();
     await showDialog(
@@ -586,6 +737,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     fontSize: 12, color: AppColors.textSecondary)),
           ]),
         ),
+        if (_canManage && roundDate(matches, round) != null)
+          IconButton(
+            tooltip: 'Posponer jornada',
+            onPressed: _updating ? null : () => _postponeRound(round),
+            icon: const Icon(Icons.event_repeat),
+          ),
         TextButton.icon(
           onPressed: () => _exportRound(round, matches),
           icon: const Icon(Icons.share, size: 18),
