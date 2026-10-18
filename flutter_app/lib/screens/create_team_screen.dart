@@ -167,10 +167,16 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         if (profile != null) {
           managerId = profile['id'] as String;
           final role = profile['role'] as String?;
-          if (role == null || role == 'user') {
-            await db
-                .from('profiles')
-                .update({'role': 'captain'}).eq('id', managerId);
+          if (role == null || role == 'user' || role == 'player') {
+            // Si la base no permite el cambio de rol, el equipo se guarda
+            // igual y queda vinculado al capitán.
+            try {
+              await db
+                  .from('profiles')
+                  .update({'role': 'captain'}).eq('id', managerId);
+            } catch (e) {
+              debugPrint('No se pudo asignar rol de capitán: $e');
+            }
           }
         }
       }

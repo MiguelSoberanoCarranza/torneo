@@ -42,7 +42,7 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
 
   bool get _isAdmin {
     final role = session.role;
-    return role == 'admin' ||
+    return role == 'superadmin' ||
         role == 'referee' ||
         (session.user != null && _leagueOwnerId == session.user!.id);
   }

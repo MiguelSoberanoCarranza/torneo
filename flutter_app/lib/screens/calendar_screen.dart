@@ -38,8 +38,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String? get _role => session.role;
   League? get _league => _leagues.where((l) => l.id == _selectedId).firstOrNull;
   bool get _isOwner => _uid != null && _league?.ownerId == _uid;
-  bool get _canOperate => _role == 'admin' || _role == 'referee' || _isOwner;
-  bool get _canManage => _role == 'admin' || _isOwner;
+  // Igual que los permisos de la base: la liga la gestiona su dueño (o un
+  // superadmin); los árbitros además pueden operar partidos.
+  bool get _canOperate =>
+      _role == 'superadmin' || _role == 'referee' || _isOwner;
+  bool get _canManage => _role == 'superadmin' || _isOwner;
 
   @override
   void initState() {

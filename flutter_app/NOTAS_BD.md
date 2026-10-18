@@ -38,7 +38,36 @@ WHERE slug IS NULL;
 En Flutter solo habría que buscar por `slug` y, si no hay resultado, por `id`
 (en `PublicTournamentScreen._load`).
 
-## 2. Seguridad: hallazgos de la revisión (no se tocaron)
+## 2. Seguridad: hallazgos de la revisión
+
+> **Estado (18 oct 2026): migración lista y probada, pendiente de aplicar.**
+> `supabase/propuestas/2026-10-18_seguridad_rls.sql` resuelve 2.1 y 2.3 (y el
+> hueco de registro de 2.2). Se probó en un PostgreSQL local que imita a
+> Supabase, con las políticas de los `.sql` del repo:
+> `supabase/propuestas/pruebas_seguridad.py` pasa de **26/54** casos correctos
+> antes a **54/54** después. La migración se puede ejecutar dos veces sin error,
+> y `..._deshacer.sql` vuelve exactamente al estado anterior.
+> El registro de capitanes por correo (`sync_captain_role`) sigue funcionando.
+>
+> Pasos para aplicarla:
+> 1. En producción, SQL Editor:
+>    `select tablename, policyname, cmd from pg_policies where schemaname = 'public';`
+>    y guarda el resultado (por si hay políticas que no están en el repo).
+> 2. Haz un respaldo (Database → Backups).
+> 3. Si tienes proyecto de pruebas: aplica ahí y corre
+>    `python3 supabase/propuestas/pruebas_seguridad.py "<cadena de conexión de pruebas>"`.
+>    **Nunca corras ese script contra producción** (crea datos de prueba).
+> 4. Aplica `2026-10-18_seguridad_rls.sql` en producción (va en una transacción).
+> 5. Prueba en la app: editar un partido de tu liga, árbitro registrando goles,
+>    capitán editando su plantilla, asignar árbitro.
+>
+> La app Flutter ya está ajustada a estas reglas: los botones de gestión solo
+> aparecen al dueño de la liga (o superadmin), y "Agregar árbitro" avisa si la
+> base rechaza el cambio.
+>
+> Lo que **no** cubre: los árbitros siguen siendo globales (pueden operar
+> partidos de cualquier liga), porque el modelo no liga árbitros a ligas; y los
+> buckets de imágenes (storage) no se revisaron.
 
 ### 2.1 Cualquier usuario puede hacerse `superadmin`
 La política `"Users can update own profile."` (`USING (auth.uid() = id)`) no
@@ -116,3 +145,25 @@ no dicen cuáles se aplicaron.
   no están en el repo, pero la llave no debería estar en git. Sácala del repo y
   guárdala en un gestor de secretos. **No la pierdas:** la versión Flutter
   necesita la misma llave para publicarse como actualización en Play Store.
+
+**Por qué no lo quité yo:** si se borra del repo desde aquí, el próximo
+`git pull` en tu PC **borraría tu copia local** de la llave y del `.env`; y si
+Vercel compila la app React leyendo ese `.env`, el sitio dejaría de conectarse
+a Supabase. Hazlo tú en este orden:
+
+1. Respalda `release-key.jks` fuera de la carpeta del proyecto (y en un gestor
+   de contraseñas o almacenamiento privado).
+2. En Vercel → Settings → Environment Variables, confirma que estén
+   `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (los nombres que use `.env`).
+3. En tu PC, dentro de `D:\torneo`:
+   ```
+   git rm --cached .env release-key.jks
+   echo .env>> .gitignore
+   echo *.jks>> .gitignore
+   git commit -m "chore: sacar secretos del repositorio"
+   git push origin viejo
+   ```
+   Los archivos se quedan en tu disco; solo dejan de subirse.
+4. Siguen en el historial de git. Si el repositorio es o fue público, considera
+   la llave expuesta: con Play App Signing puedes pedir a Google un cambio de
+   llave de subida (Play Console → Configuración → Integridad de la app).

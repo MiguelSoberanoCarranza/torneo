@@ -48,10 +48,19 @@ class _AddRefereeScreenState extends State<AddRefereeScreen> {
         }
         return;
       }
-      await db
+      final updated = await db
           .from('profiles')
-          .update({'role': 'referee'}).eq('id', profile['id'] as String);
+          .update({'role': 'referee'})
+          .eq('id', profile['id'] as String)
+          .select('id');
       if (!mounted) return;
+      if (updated.isEmpty) {
+        showToast(
+            context,
+            'No tienes permiso para cambiar el rol de ese usuario.',
+            ToastType.error);
+        return;
+      }
       showToast(context, 'Usuario promovido a Árbitro exitosamente',
           ToastType.success);
       context.pop();
