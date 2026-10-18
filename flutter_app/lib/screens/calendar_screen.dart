@@ -488,17 +488,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
     try {
       await Future.wait(plan.moves.map((x) async {
         try {
-          await db
+          // Si la BD (RLS) no deja editar, Supabase no da error: simplemente
+          // no actualiza nada. Pedimos la fila de vuelta para confirmarlo.
+          final rows = await db
               .from('matches')
-              .update({'start_time': x.newStart.toUtc().toIso8601String()}).eq(
-                  'id', x.match.id);
-        } catch (_) {
+              .update({'start_time': x.newStart.toUtc().toIso8601String()})
+              .eq('id', x.match.id)
+              .select('id');
+          if (rows.isEmpty) failed++;
+        } catch (e) {
+          debugPrint('posponer ${x.match.id}: $e');
           failed++;
         }
       }));
       if (mounted) {
         if (failed == 0) {
           showToast(context, 'Jornada $round pospuesta', ToastType.success);
+        } else if (failed == plan.moves.length) {
+          showToast(
+              context,
+              'La base de datos no aceptó el cambio (sin permiso). '
+              'Cierra sesión y vuelve a entrar con la cuenta dueña de la liga.',
+              ToastType.error);
         } else {
           showToast(
               context,
