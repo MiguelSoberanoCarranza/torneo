@@ -6,21 +6,27 @@ import '../core/ui_helpers.dart';
 import '../logic/form.dart';
 import '../models/models.dart';
 import 'common.dart';
+import 'poster_background.dart';
 
 enum PosterKind { preview, result }
 
 /// Póster 4:5 (360x450 lógicos → 1080x1350 al exportar con pixelRatio 3).
 /// Colores fijos (no del tema) para que la imagen sea igual en cualquier app.
 class MatchPoster extends StatelessWidget {
-  const MatchPoster({super.key, required this.data, required this.kind});
+  const MatchPoster({
+    super.key,
+    required this.data,
+    required this.kind,
+    this.background = const PosterBackground(),
+  });
 
   final PosterData data;
   final PosterKind kind;
+  final PosterBackground background;
 
   static const width = 360.0;
   static const height = 450.0;
 
-  static const _bg = Color(0xFF0B1220);
   static const _accent = Color(0xFF60A5FA);
   static const _muted = Color(0xFF94A3B8);
 
@@ -70,36 +76,9 @@ class MatchPoster extends StatelessWidget {
             color: Colors.white,
             decoration: TextDecoration.none),
         child: Stack(children: [
-          const Positioned.fill(child: ColoredBox(color: _bg)),
-          // Resplandores con los colores de cada equipo.
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(-1.1, -0.6),
-                  radius: 1.1,
-                  colors: [home.withValues(alpha: 0.55), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(1.1, 0.7),
-                  radius: 1.1,
-                  colors: [away.withValues(alpha: 0.55), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          // Marca de agua.
-          Positioned(
-            right: -40,
-            top: 120,
-            child: Icon(Icons.sports_soccer,
-                size: 220, color: Colors.white.withValues(alpha: 0.04)),
+            child: PosterBackgroundLayer(
+                background: background, homeColor: home, awayColor: away),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),

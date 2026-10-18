@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/manual_result_sheet.dart';
+import '../widgets/poster_dialog.dart';
 import '../widgets/stats_tables.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -681,6 +682,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               title: Text('Reiniciar partido'))),
                     ],
                   ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Póster del partido',
+                  icon: const Icon(Icons.image, size: 18),
+                  onPressed: () => showPosterDialog(context, m),
+                ),
                 if (m.isScheduled && _canManage)
                   IconButton(
                     visualDensity: VisualDensity.compact,

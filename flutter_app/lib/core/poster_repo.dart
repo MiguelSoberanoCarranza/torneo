@@ -30,9 +30,16 @@ class PosterData {
 }
 
 /// Solo lecturas (tablas con SELECT público).
-Future<PosterData> fetchPosterData(
-    MatchModel match, List<MatchEvent> events) async {
+Future<PosterData> fetchPosterData(MatchModel match,
+    [List<MatchEvent>? events]) async {
   final leagueId = match.leagueId;
+  if (events == null) {
+    final rows = await db
+        .from('match_events')
+        .select('*, player:players!match_events_player_id_fkey(name)')
+        .eq('match_id', match.id);
+    events = rows.map(MatchEvent.fromJson).toList();
+  }
   String leagueName = match.leagueName ?? '';
   String? homeColor, awayColor;
   int? homePos, awayPos;

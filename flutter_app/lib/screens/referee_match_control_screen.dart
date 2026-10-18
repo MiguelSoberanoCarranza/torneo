@@ -9,6 +9,7 @@ import '../core/ui_helpers.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/poster_dialog.dart';
 
 const _positionOrder = {'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4};
 
@@ -531,9 +532,12 @@ class _RefereeMatchControlScreenState extends State<RefereeMatchControlScreen> {
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'lineups') _openLineups();
+              if (v == 'poster') showPosterDialog(context, _match!, _events);
               if (v == 'restart') _restart();
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(
+                  value: 'poster', child: Text('Póster del partido')),
               const PopupMenuItem(
                   value: 'lineups', child: Text('Alineaciones')),
               if (_isAdmin)

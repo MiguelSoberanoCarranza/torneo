@@ -299,7 +299,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         widgets.add(Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: UpcomingMatchTile(match: m),
+          child: UpcomingMatchTile(
+              match: m, onTap: () => context.push('/match/${m.id}')),
         ));
       }
     }
