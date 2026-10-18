@@ -179,6 +179,8 @@ class MatchPoster extends StatelessWidget {
               m.isDoubleDefault
                   ? 'P - P'
                   : '${m.homeScore ?? 0} - ${m.awayScore ?? 0}',
+              maxLines: 1,
+              softWrap: false,
               style: const TextStyle(
                   fontSize: 44, fontWeight: FontWeight.w900, height: 1),
             ),
@@ -201,7 +203,15 @@ class MatchPoster extends StatelessWidget {
 
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       team(m.homeTeam, home, data.homePosition),
-      SizedBox(width: 96, height: 92, child: Center(child: center)),
+      // FittedBox: el marcador siempre en una línea; se encoge si no cabe
+      // (p. ej. "10 - 12" o fuentes más anchas en algunos dispositivos).
+      SizedBox(
+        width: 96,
+        height: 92,
+        child: Center(
+          child: FittedBox(fit: BoxFit.scaleDown, child: center),
+        ),
+      ),
       team(m.awayTeam, away, data.awayPosition),
     ]);
   }
