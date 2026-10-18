@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/poster_repo.dart';
 import '../core/ui_helpers.dart';
 import '../logic/form.dart';
+import '../logic/scorers.dart';
 import '../models/models.dart';
 import 'common.dart';
 import 'poster_background.dart';
@@ -108,20 +109,12 @@ class MatchPoster extends StatelessWidget {
     );
   }
 
-  Widget _header() => Row(children: [
-        Expanded(
-          child: Text(
-            data.leagueName.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                fontSize: 10,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.bold,
-                color: _accent),
-          ),
-        ),
-        if (_roundLabel.isNotEmpty)
+  // La jornada va en su propia etiqueta arriba y el nombre de la liga ocupa
+  // todo el ancho (hasta 2 líneas): antes compartían renglón y nombres largos
+  // se cortaban ("...3RA EDICI…").
+  Widget _header() =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_roundLabel.isNotEmpty) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
@@ -134,6 +127,19 @@ class MatchPoster extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1)),
           ),
+          const SizedBox(height: 6),
+        ],
+        Text(
+          data.leagueName.toUpperCase(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              fontSize: 10,
+              letterSpacing: 1.2,
+              height: 1.3,
+              fontWeight: FontWeight.bold,
+              color: _accent),
+        ),
       ]);
 
   Widget _teams(Color home, Color away, bool isResult) {
@@ -269,7 +275,7 @@ class MatchPoster extends StatelessWidget {
     ]);
   }
 
-  List<Widget> _formSection() {
+  List<Widget> _formSection({bool withSpacer = true}) {
     if (data.homeForm.isEmpty && data.awayForm.isEmpty) return const [];
     return [
       const Text('ÚLTIMOS 5 PARTIDOS',
@@ -285,7 +291,7 @@ class MatchPoster extends StatelessWidget {
         const SizedBox(width: 96),
         Expanded(child: Center(child: _formRow(data.awayForm))),
       ]),
-      const Spacer(),
+      if (withSpacer) const Spacer(),
     ];
   }
 
@@ -332,14 +338,16 @@ class MatchPoster extends StatelessWidget {
         events.where((e) => e.eventType == type && e.teamId == teamId).length;
 
     Widget scorers(String teamId, CrossAxisAlignment align) {
-      final g = goals(teamId);
-      final shown = g.take(5).toList();
+      final lines =
+          groupScorers(goals(teamId).map((e) => (e.playerName, e.minute)));
+      final shown = lines.take(4).toList();
+      final hidden = lines.skip(4).fold<int>(0, (sum, l) => sum + l.goals);
       return Column(crossAxisAlignment: align, children: [
-        for (final e in shown)
+        for (final l in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: 3),
             child: Text(
-              "${e.playerName ?? 'Gol'} ${e.minute != null ? "${e.minute}'" : ''}",
+              l.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: align == CrossAxisAlignment.end
@@ -348,8 +356,8 @@ class MatchPoster extends StatelessWidget {
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ),
-        if (g.length > shown.length)
-          Text('+${g.length - shown.length} más',
+        if (hidden > 0)
+          Text('+$hidden ${hidden == 1 ? 'gol' : 'goles'} más',
               style: const TextStyle(fontSize: 10, color: _muted)),
         const SizedBox(height: 4),
         Row(mainAxisSize: MainAxisSize.min, children: [
@@ -401,11 +409,25 @@ class MatchPoster extends StatelessWidget {
                       child: scorers(m.awayTeamId, CrossAxisAlignment.end)),
                 ]),
     );
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      box,
-      const Spacer(),
-      ..._formSection(),
-    ]);
+    // Si hay muchos goles el bloque se reduce en vez de desbordar el póster.
+    return LayoutBuilder(
+      builder: (context, c) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: c.maxWidth,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              box,
+              const SizedBox(height: 16),
+              ..._formSection(withSpacer: false),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _footer() => Padding(
