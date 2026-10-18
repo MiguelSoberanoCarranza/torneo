@@ -63,3 +63,27 @@ PostponePlan planPostpone(
   moves.sort((a, b) => a.newStart.compareTo(b.newStart));
   return PostponePlan(days, moves);
 }
+
+/// Días distintos en que la jornada [round] tiene partidos pendientes.
+/// Más de uno suele indicar partidos repetidos o una jornada partida.
+List<DateTime> pendingDays(Iterable<MatchModel> matches, int round) => (matches
+    .where((m) => (m.roundNumber ?? 0) == round && canMove(m))
+    .map((m) => _day(m.startTime!.toLocal()))
+    .toSet()
+    .toList()
+  ..sort());
+
+/// Ids de partidos repetidos: mismo par de equipos en la misma jornada.
+Set<String> duplicateIds(Iterable<MatchModel> matches) {
+  final groups = <String, List<String>>{};
+  for (final m in matches) {
+    final pair = [m.homeTeamId, m.awayTeamId]..sort();
+    groups
+        .putIfAbsent('${m.roundNumber}|${pair.join('|')}', () => [])
+        .add(m.id);
+  }
+  return {
+    for (final ids in groups.values)
+      if (ids.length > 1) ...ids,
+  };
+}

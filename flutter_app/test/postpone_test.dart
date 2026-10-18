@@ -45,4 +45,18 @@ void main() {
         planPostpone(matches, round: 15, newDate: DateTime(2026, 10, 18, 20));
     expect(plan.isEmpty, true);
   });
+
+  test('detecta repetidos y jornadas en varias fechas', () {
+    final list = [
+      m('a', 3, DateTime(2026, 6, 20, 9)),
+      m('b', 3, DateTime(2026, 12, 5, 9)),
+      m('c', 3, DateTime(2026, 12, 5, 10)),
+      m('d', 4, DateTime(2026, 12, 12, 9)),
+    ];
+    expect(
+        pendingDays(list, 3), [DateTime(2026, 6, 20), DateTime(2026, 12, 5)]);
+    expect(pendingDays(list, 4).length, 1);
+    // a, b, c tienen el mismo par 'a' vs 'b' en la jornada 3; d está en otra.
+    expect(duplicateIds(list), {'a', 'b', 'c'});
+  });
 }

@@ -28,6 +28,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String? _selectedId;
   List<MatchModel> _matches = [];
   List<Team> _teams = [];
+  Set<String> _duplicates = {};
   String _query = '';
   bool _searchOpen = false;
   bool _nextRoundOnly = false;
@@ -84,6 +85,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (!mounted) return;
     setState(() {
       _matches = rows.map(MatchModel.fromJson).toList();
+      _duplicates = duplicateIds(_matches);
       _teams = teams.map(Team.fromJson).toList();
     });
   }
@@ -768,6 +770,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _roundHeader(int round, List<MatchModel> matches) {
+    final days = pendingDays(matches, round);
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Row(children: [
@@ -784,6 +787,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Text('Jugados el ${formatDateShort(played)}',
                   style: const TextStyle(
                       fontSize: 11, color: AppColors.textSecondary)),
+            if (days.length > 1)
+              Text(
+                  '⚠ Pendientes en ${days.length} fechas: '
+                  '${days.map(formatDateShort).join(', ')}',
+                  style:
+                      const TextStyle(fontSize: 11, color: AppColors.warning)),
           ]),
         ),
         if (_canManage && roundDate(matches, round) != null)
@@ -916,12 +925,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 team(m.awayTeam, 'Visitante'),
               ]),
               const SizedBox(height: 4),
-              Text(statusLabel(m.status),
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color:
-                          m.isLive ? AppColors.live : AppColors.textSecondary)),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(statusLabel(m.status),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: m.isLive
+                            ? AppColors.live
+                            : AppColors.textSecondary)),
+                if (_duplicates.contains(m.id))
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text('Repetido',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.warning)),
+                  ),
+              ]),
             ]),
           ),
         ),
