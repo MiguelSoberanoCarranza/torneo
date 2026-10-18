@@ -1,0 +1,31 @@
+name: Flutter
+
+on:
+  push:
+    paths: ['flutter_app/**', '.github/workflows/flutter.yml']
+  pull_request:
+    paths: ['flutter_app/**', '.github/workflows/flutter.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.5
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Formato
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Análisis estático
+        run: flutter analyze
+      - name: Pruebas
+        run: flutter test
+      - name: Compilación web
+        # Valores de ejemplo: solo comprueba que compila; no se publica.
+        run: flutter build web --release --no-web-resources-cdn --dart-define-from-file=env.example.json
