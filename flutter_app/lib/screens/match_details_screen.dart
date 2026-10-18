@@ -7,6 +7,7 @@ import '../core/ui_helpers.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/poster_dialog.dart';
 
 /// Detalle de partido con actualización en tiempo real.
 /// Une MatchDetailsScreen y MatchDetailsLiveScreen de React.
@@ -124,6 +125,14 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
         leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new), onPressed: _back),
         title: Text(m == null ? 'Partido' : 'Jornada ${m.roundNumber ?? '-'}'),
+        actions: [
+          if (m != null)
+            IconButton(
+              tooltip: 'Póster del partido',
+              icon: const Icon(Icons.image),
+              onPressed: () => showPosterDialog(context, m, _events),
+            ),
+        ],
       ),
       body: _loading
           ? const LoadingView()
@@ -141,6 +150,16 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                     ),
                     const SizedBox(height: 12),
                     _scoreboard(m),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(46)),
+                      onPressed: () => showPosterDialog(context, m, _events),
+                      icon: const Icon(Icons.image),
+                      label: Text(m.isScheduled
+                          ? 'Crear póster de la previa'
+                          : 'Crear póster del partido'),
+                    ),
                     const SectionTitle('Minuto a Minuto'),
                     if (_events.isEmpty)
                       Text(

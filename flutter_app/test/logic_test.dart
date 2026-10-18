@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:torneo_app/logic/fixture.dart';
+import 'package:torneo_app/logic/form.dart';
 import 'package:torneo_app/logic/liguilla.dart';
 import 'package:torneo_app/logic/standings.dart';
 import 'package:torneo_app/logic/stats.dart';
@@ -142,5 +143,25 @@ void main() {
     ]);
     expect(s.scorers.map((x) => (x.playerId, x.goals)), [('1', 2), ('2', 1)]);
     expect(s.cards.first.playerId, '3');
+  });
+
+  test('teamForm: últimos 5, del más antiguo al más reciente', () {
+    final ms = [
+      r('A', 'B', 1, 0), // G
+      r('C', 'A', 2, 2), // E
+      r('A', 'D', 0, 3), // P
+      r('B', 'C', 1, 1), // no juega A
+      r('E', 'A', -1, -1), // doble default: P
+      r('A', 'F', 4, 1), // G
+      r('G', 'A', 0, 1), // G
+    ];
+    expect(teamForm('A', ms), [
+      FormResult.draw,
+      FormResult.loss,
+      FormResult.loss,
+      FormResult.win,
+      FormResult.win,
+    ]);
+    expect(teamForm('Z', ms), isEmpty);
   });
 }
