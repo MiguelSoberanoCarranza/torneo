@@ -60,13 +60,15 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
     super.dispose();
   }
 
+  /// Id real de la liga; en la URL puede venir un slug legible.
+  String get _leagueId => _league?.id ?? widget.leagueId;
+
   Future<void> _load() async {
     try {
-      final data = await db
-          .from('leagues')
-          .select()
-          .eq('id', widget.leagueId)
-          .maybeSingle();
+      final id = await resolveLeagueId(widget.leagueId);
+      final data = id == null
+          ? null
+          : await db.from('leagues').select().eq('id', id).maybeSingle();
       final league = data == null ? null : League.fromJson(data);
       if (league == null || !league.isActive) {
         _league = null;
@@ -86,7 +88,7 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
     final rows = await db
         .from('matches')
         .select(matchWithTeamsSelect)
-        .eq('league_id', widget.leagueId)
+        .eq('league_id', _leagueId)
         .order('start_time', ascending: true);
     final matches = rows.map(MatchModel.fromJson).toList();
     final liveIds = matches.where((m) => m.isLive).map((m) => m.id).toList();
@@ -109,10 +111,9 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
   }
 
   Future<void> _loadTables() async {
-    final standings = await fetchStandings(widget.leagueId);
-    final stats =
-        aggregateStats(await fetchFinishedMatchEvents(widget.leagueId));
-    final liguilla = await fetchLiguilla(widget.leagueId);
+    final standings = await fetchStandings(_leagueId);
+    final stats = aggregateStats(await fetchFinishedMatchEvents(_leagueId));
+    final liguilla = await fetchLiguilla(_leagueId);
     if (!mounted) return;
     setState(() {
       _standings = standings;
@@ -124,7 +125,7 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
   /// Marcadores en vivo: cualquier cambio en partidos de esta liga recarga.
   void _subscribe() {
     _channel = db
-        .channel('public-league-${widget.leagueId}')
+        .channel('public-league-$_leagueId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -132,7 +133,7 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
           filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq,
               column: 'league_id',
-              value: widget.leagueId),
+              value: _leagueId),
           callback: (payload) {
             _debounce?.cancel();
             _debounce = Timer(const Duration(milliseconds: 800), () async {
@@ -149,7 +150,10 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
   }
 
   Future<void> _share() async {
-    final url = publicTournamentUrl(widget.leagueId);
+    final league = _league;
+    final url = league == null
+        ? publicTournamentUrl(widget.leagueId)
+        : await fetchPublicTournamentUrl(league);
     await Clipboard.setData(ClipboardData(text: url));
     if (mounted) showToast(context, 'Enlace copiado: $url', ToastType.success);
   }

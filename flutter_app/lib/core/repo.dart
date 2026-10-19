@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
 import '../logic/standings.dart';
+import '../logic/slug.dart';
 import '../models/models.dart';
 import 'supabase.dart';
 
@@ -167,7 +168,36 @@ Future<String> uploadPublicImage(String bucket, PickedImage img,
 
 // ---------------- Enlace público ----------------
 
-String publicTournamentUrl(String leagueId) {
+String publicTournamentUrl(String leagueIdOrSlug) {
   final base = kIsWeb ? Uri.base.origin : Env.publicBaseUrl;
-  return '$base/torneo/$leagueId';
+  return '$base/torneo/$leagueIdOrSlug';
+}
+
+/// Slug legible de la liga (p. ej. `liga-premier-la-lima`). Consulta las
+/// demás ligas para evitar nombres repetidos; si falla, usa el id.
+Future<String> fetchLeagueSlug(League league) async {
+  try {
+    final rows = await db.from('leagues').select('id, name');
+    final all = [
+      for (final r in rows)
+        (id: r['id'] as String, name: (r['name'] ?? '') as String)
+    ];
+    return leagueSlug((id: league.id, name: league.name), all);
+  } catch (_) {
+    return league.id;
+  }
+}
+
+/// Enlace público bonito de la liga.
+Future<String> fetchPublicTournamentUrl(League league) async =>
+    publicTournamentUrl(await fetchLeagueSlug(league));
+
+/// Id de la liga a partir de lo que viene en la URL (UUID o slug).
+Future<String?> resolveLeagueId(String slugOrId) async {
+  if (isUuid(slugOrId)) return slugOrId;
+  final rows = await db.from('leagues').select('id, name');
+  return resolveLeagueSlug(slugOrId, [
+    for (final r in rows)
+      (id: r['id'] as String, name: (r['name'] ?? '') as String)
+  ]);
 }

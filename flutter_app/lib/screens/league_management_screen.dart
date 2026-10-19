@@ -210,14 +210,18 @@ class _LeagueManagementScreenState extends State<LeagueManagementScreen> {
             child: ListTile(
               leading: const Icon(Icons.link, color: AppColors.primary),
               title: const Text('Enlace público del torneo'),
-              subtitle: Text(publicTournamentUrl(l.id),
-                  overflow: TextOverflow.ellipsis),
+              subtitle: FutureBuilder<String>(
+                future: fetchPublicTournamentUrl(l),
+                builder: (_, snap) => Text(
+                    snap.data ?? publicTournamentUrl(l.id),
+                    overflow: TextOverflow.ellipsis),
+              ),
               trailing: IconButton(
                 tooltip: 'Copiar',
                 icon: const Icon(Icons.copy),
                 onPressed: () async {
                   await Clipboard.setData(
-                      ClipboardData(text: publicTournamentUrl(l.id)));
+                      ClipboardData(text: await fetchPublicTournamentUrl(l)));
                   if (context.mounted) {
                     showToast(context, 'Enlace copiado', ToastType.success);
                   }
