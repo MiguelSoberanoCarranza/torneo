@@ -176,10 +176,10 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
       color: AppColors.primary,
       child: Scaffold(
         body: NestedScrollView(
-          headerSliverBuilder: (context, _) => [
+          headerSliverBuilder: (context, scrolled) => [
             SliverAppBar(
               pinned: true,
-              expandedHeight: 190,
+              expandedHeight: 200,
               automaticallyImplyLeading: false,
               actions: [
                 IconButton(
@@ -188,7 +188,13 @@ class _PublicTournamentScreenState extends State<PublicTournamentScreen>
                   onPressed: _share,
                 ),
               ],
-              title: Text(league.name, overflow: TextOverflow.ellipsis),
+              // El nombre ya está en el encabezado; en la barra solo aparece
+              // al hacer scroll, cuando el encabezado se oculta.
+              title: AnimatedOpacity(
+                opacity: scrolled ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Text(league.name, overflow: TextOverflow.ellipsis),
+              ),
               flexibleSpace: FlexibleSpaceBar(
                 collapseMode: CollapseMode.pin,
                 background: _Header(league: league),
@@ -369,7 +375,8 @@ class _Header extends StatelessWidget {
           ],
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 56, 16, 56),
+      // Arriba deja libre la barra (botón compartir) y abajo las pestañas.
+      padding: const EdgeInsets.fromLTRB(16, 48, 16, 52),
       child: Row(children: [
         TeamShield(url: league.logoUrl, size: 64, icon: Icons.emoji_events),
         const SizedBox(width: 14),
@@ -382,7 +389,8 @@ class _Header extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w900)),
+                      fontSize: 20, fontWeight: FontWeight.w900, height: 1.2)),
+              const SizedBox(height: 2),
               Text(
                 [
                   if (league.format != null) 'Fútbol ${league.format}',
@@ -390,7 +398,7 @@ class _Header extends StatelessWidget {
                       league.description!.trim().isNotEmpty)
                     league.description!,
                 ].join(' · '),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AppColors.textSecondary),
               ),
