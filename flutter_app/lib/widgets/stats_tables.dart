@@ -15,50 +15,53 @@ class StandingsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget num(String v, {Color? color, bool bold = false}) => SizedBox(
-          width: 30,
-          child: Text(v,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 13,
-                  color: color,
-                  fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
-        );
-
-    // En pantallas angostas se ocultan GF/GC (queda DIF) para que la tabla
-    // quepa completa sin desplazamiento horizontal.
+    // Siempre se muestran todas las columnas (incluidos GF y GC). En
+    // celular las columnas numéricas se hacen más angostas para que la tabla
+    // quepa completa; solo en pantallas muy estrechas se desplaza de lado.
     return LayoutBuilder(builder: (context, c) {
-      final compact = c.maxWidth < 480;
-      return Card(
+      final compact = c.maxWidth < 520;
+      final numW = compact ? 25.0 : 30.0;
+      final fs = compact ? 12.0 : 13.0;
+      const minWidth = 350.0;
+      final narrow = c.maxWidth < minWidth;
+
+      Widget num(String v, {Color? color, bool bold = false}) => SizedBox(
+            width: numW,
+            child: Text(v,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: fs,
+                    color: color,
+                    fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+          );
+      final headStyle = _headStyle.copyWith(fontSize: compact ? 11 : null);
+
+      final table = Card(
         child: Column(children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            padding:
+                EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: 10),
             child: Row(children: [
-              const SizedBox(width: 28, child: Text('Pos', style: _headStyle)),
-              const Expanded(child: Text('Equipo', style: _headStyle)),
-              for (final h in [
-                'PJ',
-                'G',
-                'E',
-                'P',
-                if (!compact) ...['GF', 'GC'],
-                'DIF',
-                'PTS'
-              ])
+              SizedBox(
+                  width: compact ? 24 : 28,
+                  child: Text('Pos', style: headStyle)),
+              Expanded(child: Text('Equipo', style: headStyle)),
+              for (final h in ['PJ', 'G', 'E', 'P', 'GF', 'GC', 'DIF', 'PTS'])
                 SizedBox(
-                    width: 30,
-                    child: Text(h,
-                        textAlign: TextAlign.center, style: _headStyle)),
+                    width: numW,
+                    child:
+                        Text(h, textAlign: TextAlign.center, style: headStyle)),
             ]),
           ),
           const Divider(height: 1, color: AppColors.borderDark),
           for (var i = 0; i < standings.length; i++)
             Container(
               color: i < 8 ? AppColors.primary.withValues(alpha: 0.06) : null,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 6 : 8, vertical: 8),
               child: Row(children: [
                 SizedBox(
-                  width: 28,
+                  width: compact ? 24 : 28,
                   child: Text('${i + 1}',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -71,13 +74,13 @@ class StandingsTable extends StatelessWidget {
                     TeamShield(
                         url: standings[i].shieldUrl,
                         name: standings[i].name,
-                        size: 26),
-                    const SizedBox(width: 8),
+                        size: compact ? 22 : 26),
+                    SizedBox(width: compact ? 6 : 8),
                     Expanded(
                       child: Text(standings[i].name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+                          style: TextStyle(
+                              fontSize: fs, fontWeight: FontWeight.w600)),
                     ),
                   ]),
                 ),
@@ -85,10 +88,8 @@ class StandingsTable extends StatelessWidget {
                 num('${standings[i].won}'),
                 num('${standings[i].drawn}'),
                 num('${standings[i].lost}'),
-                if (!compact) ...[
-                  num('${standings[i].gf}'),
-                  num('${standings[i].ga}'),
-                ],
+                num('${standings[i].gf}'),
+                num('${standings[i].ga}'),
                 num(
                   standings[i].gd > 0
                       ? '+${standings[i].gd}'
@@ -103,6 +104,11 @@ class StandingsTable extends StatelessWidget {
               ]),
             ),
         ]),
+      );
+      if (!narrow) return table;
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(width: minWidth, child: table),
       );
     });
   }

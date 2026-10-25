@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/export_image.dart';
 import '../core/repo.dart';
 import '../core/session.dart';
 import '../core/supabase.dart';
@@ -10,6 +9,7 @@ import '../logic/postpone.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/export_dialog.dart';
 import '../widgets/main_shell.dart';
 import '../widgets/manual_result_sheet.dart';
 import '../widgets/poster_dialog.dart';
@@ -680,102 +680,62 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _exportRound(int round, List<MatchModel> matches) async {
-    final key = GlobalKey();
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        var exporting = false;
-        return StatefulBuilder(
-          builder: (ctx, setLocal) => AlertDialog(
-            title: const Text('Vista Previa'),
-            contentPadding: const EdgeInsets.all(8),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: RepaintBoundary(
-                  key: key,
-                  child: ExportFrame(
-                    leagueName: _league?.name ?? '',
-                    title: 'Jornada',
-                    highlight: '$round',
-                    subtitle: matches.isEmpty
-                        ? 'FECHA'
-                        : formatDateLong(_roundDisplayDate(round, matches)),
-                    child: Column(children: [
-                      for (final m in matches) _exportRow(m),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancelar')),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                onPressed: exporting
-                    ? null
-                    : () async {
-                        setLocal(() => exporting = true);
-                        try {
-                          await captureAndShare(
-                              key, 'jornada-$round-premier.png');
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        } catch (e) {
-                          setLocal(() => exporting = false);
-                          if (mounted) {
-                            showToast(context, 'Error al exportar imagen',
-                                ToastType.error);
-                          }
-                        }
-                      },
-                icon: const Icon(Icons.download),
-                label: Text(exporting ? 'Exportando...' : 'Descargar Imagen'),
-              ),
-            ],
-          ),
-        );
-      },
+    await showExportDialog(
+      context,
+      fileName: 'jornada-$round-premier.png',
+      child: ExportFrame(
+        leagueName: _league?.name ?? '',
+        title: 'Jornada',
+        highlight: '$round',
+        subtitle: matches.isEmpty
+            ? 'FECHA'
+            : formatDateLong(_roundDisplayDate(round, matches)),
+        child: Column(children: [
+          for (final m in matches) _exportRow(m),
+        ]),
+      ),
     );
   }
 
   Widget _exportRow(MatchModel m) {
-    const white = TextStyle(color: Colors.white, fontWeight: FontWeight.bold);
+    // Se dibuja al ancho de exportación (escritorio), por eso va más grande.
+    const white = TextStyle(
+        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white24),
       ),
       child: Row(children: [
         SizedBox(
-          width: 52,
+          width: 70,
           child: Text(m.isFinished ? 'FINAL' : formatTime(m.startTime),
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 15)),
         ),
         Expanded(
             child: Text(m.homeTeam?.name ?? '',
                 textAlign: TextAlign.end,
                 overflow: TextOverflow.ellipsis,
                 style: white)),
-        const SizedBox(width: 6),
+        const SizedBox(width: 12),
         TeamShield(
-            url: m.homeTeam?.shieldUrl, name: m.homeTeam?.name, size: 30),
+            url: m.homeTeam?.shieldUrl, name: m.homeTeam?.name, size: 44),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           child: Text(
             m.isScheduled
                 ? 'VS'
                 : '${scoreText(m.homeScore)} - ${scoreText(m.awayScore)}',
-            style: white,
+            style: white.copyWith(
+                fontSize: 22, color: m.isScheduled ? Colors.white54 : null),
           ),
         ),
         TeamShield(
-            url: m.awayTeam?.shieldUrl, name: m.awayTeam?.name, size: 30),
-        const SizedBox(width: 6),
+            url: m.awayTeam?.shieldUrl, name: m.awayTeam?.name, size: 44),
+        const SizedBox(width: 12),
         Expanded(
             child: Text(m.awayTeam?.name ?? '',
                 overflow: TextOverflow.ellipsis, style: white)),

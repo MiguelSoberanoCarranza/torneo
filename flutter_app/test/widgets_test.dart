@@ -97,14 +97,18 @@ void main() {
       expect(find.text('+15'), findsOneWidget); // DIF del primero (20-5)
     });
 
-    testWidgets('en celular (<480px) oculta GF/GC y no desborda',
-        (tester) async {
+    testWidgets('en celular conserva GF/GC y cabe completa', (tester) async {
       await pumpAt(tester, phone, StandingsTable(standings: rows));
       expect(tester.takeException(), isNull);
-      expect(find.text('GF'), findsNothing);
-      expect(find.text('GC'), findsNothing);
+      expect(find.text('GF'), findsOneWidget);
+      expect(find.text('GC'), findsOneWidget);
       expect(find.text('DIF'), findsOneWidget);
-      expect(find.text('1'), findsWidgets);
+      // A 390 px cabe completa, sin desplazamiento lateral.
+      expect(
+          find.descendant(
+              of: find.byType(StandingsTable),
+              matching: find.byType(SingleChildScrollView)),
+          findsNothing);
     });
   });
 

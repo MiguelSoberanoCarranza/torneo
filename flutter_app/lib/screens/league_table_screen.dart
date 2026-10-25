@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../core/export_image.dart';
 import '../core/repo.dart';
 import '../core/ui_helpers.dart';
 import '../logic/standings.dart';
 import '../logic/stats.dart';
 import '../models/models.dart';
 import '../widgets/common.dart';
+import '../widgets/export_dialog.dart';
 import '../widgets/main_shell.dart';
 import '../widgets/stats_tables.dart';
 
@@ -74,7 +74,6 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
       'Seleccionar Liga';
 
   Future<void> _openExport() async {
-    final key = GlobalKey();
     final tab = _tabs.index;
     final highlight = ['GENERAL', 'DE GOLEO', 'FAIR PLAY'][tab];
     final body = switch (tab) {
@@ -82,63 +81,16 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
       1 => ScorersTable(scorers: _stats.scorers, limit: 5),
       _ => CardsTable(stats: _stats.cards),
     };
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        var exporting = false;
-        return StatefulBuilder(
-          builder: (ctx, setLocal) => AlertDialog(
-            title: const Text('Vista Previa'),
-            contentPadding: const EdgeInsets.all(8),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: RepaintBoundary(
-                  key: key,
-                  child: ExportFrame(
-                    leagueName: _leagueName,
-                    title: 'TABLA',
-                    highlight: highlight,
-                    child: body,
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancelar')),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                onPressed: exporting
-                    ? null
-                    : () async {
-                        setLocal(() => exporting = true);
-                        try {
-                          final slug = _leagueName
-                              .replaceAll(RegExp(r'\s+'), '-')
-                              .toLowerCase();
-                          await captureAndShare(key, 'tabla-general-$slug.png');
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          if (mounted) {
-                            showToast(context, 'Imagen generada correctamente',
-                                ToastType.success);
-                          }
-                        } catch (e) {
-                          setLocal(() => exporting = false);
-                          if (mounted) {
-                            showToast(context, 'Error al exportar imagen',
-                                ToastType.error);
-                          }
-                        }
-                      },
-                icon: const Icon(Icons.download),
-                label: Text(exporting ? 'Exportando...' : 'Descargar Imagen'),
-              ),
-            ],
-          ),
-        );
-      },
+    final slug = _leagueName.replaceAll(RegExp(r'\s+'), '-').toLowerCase();
+    await showExportDialog(
+      context,
+      fileName: 'tabla-general-$slug.png',
+      child: ExportFrame(
+        leagueName: _leagueName,
+        title: 'TABLA',
+        highlight: highlight,
+        child: body,
+      ),
     );
   }
 
