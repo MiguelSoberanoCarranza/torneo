@@ -6,6 +6,7 @@ import '../logic/standings.dart';
 import '../logic/stats.dart';
 import '../models/models.dart';
 import '../widgets/common.dart';
+import '../widgets/export_designs.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/main_shell.dart';
 import '../widgets/stats_tables.dart';
@@ -77,18 +78,18 @@ class _LeagueTableScreenState extends State<LeagueTableScreen>
     final tab = _tabs.index;
     final highlight = ['GENERAL', 'DE GOLEO', 'FAIR PLAY'][tab];
     final body = switch (tab) {
-      0 => StandingsTable(standings: _standings),
-      1 => ScorersTable(scorers: _stats.scorers, limit: 5),
-      _ => CardsTable(stats: _stats.cards),
+      0 => ExportStandings(standings: _standings),
+      1 => ExportScorers(scorers: _stats.scorers),
+      _ => ExportCards(stats: _stats.cards),
     };
     final slug = _leagueName.replaceAll(RegExp(r'\s+'), '-').toLowerCase();
     await showExportDialog(
       context,
       fileName: 'tabla-general-$slug.png',
       child: ExportFrame(
-        leagueName: _leagueName,
-        title: 'TABLA',
+        title: 'Tabla',
         highlight: highlight,
+        subtitle: _leagueName,
         child: body,
       ),
     );

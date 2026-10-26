@@ -9,11 +9,11 @@ import '../logic/postpone.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common.dart';
+import '../widgets/export_designs.dart';
 import '../widgets/export_dialog.dart';
 import '../widgets/main_shell.dart';
 import '../widgets/manual_result_sheet.dart';
 import '../widgets/poster_dialog.dart';
-import '../widgets/stats_tables.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -684,62 +684,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context,
       fileName: 'jornada-$round-premier.png',
       child: ExportFrame(
-        leagueName: _league?.name ?? '',
         title: 'Jornada',
         highlight: '$round',
+        subtitleIcon: Icons.calendar_month,
         subtitle: matches.isEmpty
             ? 'FECHA'
             : formatDateLong(_roundDisplayDate(round, matches)),
         child: Column(children: [
-          for (final m in matches) _exportRow(m),
+          for (final m in matches) ExportMatchRow(m),
         ]),
       ),
-    );
-  }
-
-  Widget _exportRow(MatchModel m) {
-    // Se dibuja al ancho de exportación (escritorio), por eso va más grande.
-    const white = TextStyle(
-        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(children: [
-        SizedBox(
-          width: 70,
-          child: Text(m.isFinished ? 'FINAL' : formatTime(m.startTime),
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 15)),
-        ),
-        Expanded(
-            child: Text(m.homeTeam?.name ?? '',
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                style: white)),
-        const SizedBox(width: 12),
-        TeamShield(
-            url: m.homeTeam?.shieldUrl, name: m.homeTeam?.name, size: 44),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Text(
-            m.isScheduled
-                ? 'VS'
-                : '${scoreText(m.homeScore)} - ${scoreText(m.awayScore)}',
-            style: white.copyWith(
-                fontSize: 22, color: m.isScheduled ? Colors.white54 : null),
-          ),
-        ),
-        TeamShield(
-            url: m.awayTeam?.shieldUrl, name: m.awayTeam?.name, size: 44),
-        const SizedBox(width: 12),
-        Expanded(
-            child: Text(m.awayTeam?.name ?? '',
-                overflow: TextOverflow.ellipsis, style: white)),
-      ]),
     );
   }
 
